@@ -1,0 +1,900 @@
+Quantum Random Circuit Sampling as a Distributional Prior
+for Long-Tail Embodied Learning:
+An Extended Framework with Real-World Validation
+†
+
+†
+
+†
+
+Zeng Xianghong , Li Wuyi , Jin Yirong
+†
+
+Coherent (Beijing) Technology Co., Ltd.
+
+Abstract
+
+non-uniform, analytically tractable nature of PT randomness, which can serve as a distributional prior transformed into useful training-time laws.
+This extended paper addresses ve key limitations:
+
+Random-circuit sampling (RCS) produces output probabilities whose chaotic-limit statistics are well approximated by the PorterThomas (PT) law. This extended work addresses ve key limitations of preliminary studies and presents a comprehensive framework
+for transforming PT-like samples into three trainingtime distributions for embodied learning: (i) a samplescheduling distribution over long-tail buckets, (ii) a riskscene distribution over perturbation severities, and (iii)
+an exploration-noise distribution over latent action perturbations. The extensions include: (1) real-world validation on Meta-World MT10/MT50 benchmarks; (2)
+multidimensional optimal transport via Copula preservation; (3) nonlinear utility functions and adaptive
+scheduling; (4) integration with real quantum hardware
+data; (5) comprehensive baseline comparison. On MetaWorld MT10, PT-rank improves tail success from 52.9%
+(uniform) to 56.5% with 94.3% retention on MT50.
+Real quantum hardware experiments demonstrate robustness with only 3.2% degradation. These results establish that PT-style quantum randomness admits implementable, theoretically grounded mappings into longtail-aware training distributions.
+
+1
+
+Limitation 1:
+
+Pure synthetic experiments.
+
+Comprehensive validation on Meta-World MT10 and
+MT50 environments is now provided.
+
+Limitation 2: One-dimensional scalar mapping.
+
+Extension to multidimensional optimal transport with
+Copula structure preservation is presented.
+Limitation 3: Linear utility function. Nonlinear
+utility functions and adaptive scheduling are introduced.
+Limitation 4: PT surrogate. Integration of real
+RCS data from Quafu/Baihua platforms with noise modeling is provided.
+
+Limitation 5: Insucient baseline comparison.
+
+Comprehensive comparison with Focal Loss [7], Logit
+Adjustment [10], DRO [15], and meta-learning [14, 13]
+approaches is included.
+
+Introduction
+
+2
+
+Preliminaries
+
+2.1
+
+PorterThomas Surrogate
+
+Let U be an n-qubit pseudo-random circuit with output
+probability pU (x) = |⟨x|U |0n ⟩|2 . The rescaled variable
+Yx = N · pU (x) approaches Exp(1) in the chaotic limit.
+PT-like source samples are modeled by Y ∼ µPT with
+FPT (y) = 1 − e−y .
+
+Embodied learning systems are trained under distributions that are rarely uniform across task families, object categories, contact modes, failure modes, and disturbance regimes. Even when the policy class is expressive enough, performance may remain fragile because the
+learner receives too little exposure to the regions that
+dominate tail risk. The central object of design is therefore not only the policy but also the training distribution
+itself.
+Random-circuit sampling provides a technically attractive source distribution for this problem. For sufciently deep pseudo-random circuits, the output probabilities exhibit anti-concentration and are well modeled
+by PorterThomas statistics [2, 1]. PT samples do not
+carry task semantics; their value lies in the structured,
+
+2.2
+
+Three Target Distributions
+
+(i) Sample scheduling: Produce schedule q ∈ ∆K
+
+from empirical prior b and PT mass S via q = (1 −
+η)b + ηP S .
+(ii) Risk-scene generation: Generate ξ ∈ [0, 1] via
+ξ = G−1 (FPT (Y )).
+(iii) Exploration-noise: Generate σ ∈ [0, σmax ] via
+σ = H −1 (FPT (Y )).
+1
+
+3
+
+Mapping I: Sample Scheduling
+
+3.1
+
+Rank-Optimal Alignment
+
+4
+
+ation
+
+4.1
+
+Under the linear marginal-gain objective U (q; τ ) =
+⟨τ , q⟩:
+
+Theorem 2 (Optimality). The monotone map T ∗ (y) =
+G−1 (FPT (y)) minimizes the p-Wasserstein transport
+cost.
+Figure 2 demonstrates risk-scene generation. The
+target risk law G is instantiated as a two-mode Beta
+mixture: G = 0.85 · Beta(2, 12) + 0.15 · Beta(8, 2),
+encoding mostly mild perturbations with a small but
+non-negligible severe tail.
+PT quantile transport
+closely matches this target density (blue), achieving
+Wasserstein-1 distance of 0.0044, compared to 0.0933 for
+Gaussian baseline and 0.2602 for uniform.
+
+the highest-priority tail bucket, the second largest to the
+second highest-priority, and so on. This deterministic
+assignment outperforms random permutation.
+Figure 1 visualizes this process. Panel (a) shows
+how rank-matched PT mass reallocates exposure toward
+high-tail buckets. The PT mass vector S (sorted descending) is aligned with the priority vector τ (sorted
+descending), producing a schedule q that emphasizes
+tail buckets while preserving head performance. Panel
+(b) compares the head vs. tail exposure across methods: PT-rank achieves a better head-tail compromise
+than uniform (under-exposes tail) or inverse-frequency
+(over-exposes tail, causing head collapse).
+
+0.8
+0.6
+0.4
+0.2
+0.0
+
+0
+
+5
+
+10
+
+15
+
+Bucket Index (sorted by priority)
+
+(b) Risk: PT Quantile Transport
+
+Head vs Tail Exposure
+
+20
+
+Head Buckets
+Tail Buckets
+
+0.4
+0.3
+0.2
+
+Uniform
+
+Inv-Freq
+
+Method
+
+PT-rank
+
+2
+
+0
+
+Figure 1: Scheduler visualization. (a) Rank-matched PT
+mass reallocates exposure toward high-tail buckets. (b)
+Head vs tail exposure comparison across methods. PTrank achieves optimal head-tail compromise.
+
+3.2
+
+3
+
+1
+
+0.1
+0.0
+
+Target G
+PT-OT
+Gaussian
+Uniform
+
+4
+
+Density
+
+Probability Mass
+
+Tail Priority
+PT-rank Schedule
+Base Prior
+
+Probability Mass
+
+(a) Scheduler: Rank-Matched PT Allocation
+
+Monotone Transport
+
+Proposition 2 (Pushforward). If Y ∼ Exp(1) and ξ =
+G−1 (FPT (Y )), then Law(ξ) = G.
+
+Theorem 1 (Permutation-optimal rank matching). Let
+τ(1) ≥ · · · ≥ τ(K) and S(1) ≥ · · · ≥ S(K) denote descending rearrangements. The maximizer of maxP ⟨τ , P S⟩ assigns S(i) to the bucket with priority τ(i) .
+Interpretation. The largest PT mass is assigned to
+
+1.0
+
+Mapping II: Risk-Scene Gener-
+
+0.0
+
+0.2
+
+0.4
+
+0.6
+
+Perturbation Severity
+
+0.8
+
+1.0
+
+Figure 2: Risk distribution mapping. PT quantile
+transport (blue) closely matches the target risk density
+(black), outperforming Gaussian (green) and uniform
+(gray) baselines. The target law encodes mostly mild
+perturbations with a rare severe tail.
+
+Nonlinear Utility Functions
+
+Real learning curves often exhibit diminishing returns or
+threshold eects. Three nonlinear utility functions are
+introduced:
+
+Implication. The PT source can be mapped into prescribed risk proles with high delity, enabling controlled
+rehearsal of disturbance severities during training.
+
+Denition 1 (Nonlinear Utility). 1. Logarithmic:
+Uk (n) = αk log(1 + βk n)
+
+4.2
+
+2. Sigmoid: Uk (n) = Lk /(1 + exp(−κk (n − n0,k )))
+
+Multidimensional Extension
+
+Theorem 3 (Multidimensional PT Transport). Let
+Y = (Y1 , . . . , Yd ) with Yi ∼ Exp(1) independently, and
+let C be the Copula capturing target perturbation correlation. The transport map
+
+3. Power-law: Uk (n) = αk nγk , γk ∈ (0, 1)
+Proposition 1 (Adaptive
+Convergence). Under ηt+1 =
+
+′
+ηt + λ Ū ′ (t) − Utarget
+, the sequence {ηt } converges to a
+xed point η∗ ∈ [0, 1].
+Eect. The mixing coecient η adapts dynamically:
+
+−1
+Td (Y ) = G−1
+1 (C1 (FPT (Y1 ))),
+
+
+−1
+. . . , G−1
+d (Cd (FPT (Yd )))
+
+when average marginal utility exceeds target, η increases
+(more PT inuence); when below, η decreases (more base
+prior).
+
+(1)
+
+preserves Copula structure while applying PT marginal
+transforms.
+2
+
+6.2
+
+Application. For manipulation tasks, the perturbation space spans joint torques (djoints dimensions), camera viewpoints (3 dimensions), and physical parameters
+(k dimensions). The multidimensional transport preserves inter-dimensional correlations while applying PTderived marginals.
+
+Denition 2 (Hardware Noise). The noise model N
+comprises: (1) decoherence times T1 , T2 per qubit; (2)
+gate errors ϵ1 , ϵ2 ; (3) readout error matrix Mreadout .
+Proposition
+3
+(Robustness
+Bound).
+If
+TV(Preal , Pideal ) < ϵ, then |U (Preal ) − U (Pideal )| ≤
+ϵ · maxk τk .
+
+Mapping III: Exploration-Noise
+
+Figure 4 compares ideal PT distribution with real
+RCS data and analyzes robustness to noise. Panel (a)
+shows the distribution comparison: real hardware exhibits slight deviation from ideal PT due to noise, with
+TV distance ≈ 0.08. Panel (b) shows performance degradation under increasing noise levels: real RCS achieves
+0.552 tail success vs. 0.565 ideal PT, corresponding to
+only 3.2% degradation.
+
+Generation
+The target law H = (1 − ρ)Beta(a1 , b1 ) + ρBeta(a2 , b2 )
+rescaled to [0, σmax ] provides rare large jumps. Figure 3
+shows exploration-noise generation and its eect on cumulative reward in a 20-arm structured bandit benchmark.
+(c) Exploration: Rare Large Jumps
+
+4
+2
+0
+
+1.0
+
+Fixed = 0.05
+Gaussian
+PT-OT
+
+200
+150
+100
+
+0.1
+
+0.2
+
+Exploration Scale
+
+0.3
+
+0.4
+
+0
+
+200
+
+400
+
+600
+
+Episode
+
+800
+
+0
+
+1000
+
+2
+
+3
+
+Rescaled Probability Y
+
+4
+
+5
+
+-1.1%
+
+0.56
+
+-2.1%
+-3.2%
+
+0.55
+
+-2.3%
+
+0.54
+0.53
+0.52
+
+Ideal PT baseline
+
+Ideal
+PT
+
+TV=0.02 TV=0.05 TV=0.08
+
+Real
+RCS
+
+Conclusion. PT-based scheduling is robust to realistic
+quantum hardware noise, validating the practical applicability of the framework.
+
+Panel (a) shows the exploration scale distribution:
+PT-OT concentrates most mass on small perturbations
+(σ < 0.1) while preserving a controlled tail of rare large
+jumps (σ > 0.3). Panel (b) demonstrates the eect on
+cumulative reward: PT-OT improves from 230.46 (Gaussian) to 248.84 and doubles best-arm discovery from
+21.25% to 43.00%.
+Mechanism. The rare large jumps allow the policy to
+escape under-covered value basins and discover optimal
+arms, while small perturbations protect short-term performance.
+
+7
+
+Meta-World Validation
+
+7.1
+
+Experimental Setup
+
+Validation is performed on Meta-World MT10 and
+MT50: 10/50 manipulation tasks partitioned into Head,
+Medium, and Tail. Head tasks: reach-v2, push-v2,
+pick-place-v2, door-open-v2. Tail tasks: window-openv2, sweep-v2, basketball-v2. Training budget: 100,000
+steps, 3 seeds per conguration.
+
+7.2
+
+Real Quantum Hardware Inte-
+
+Results
+
+Table 1 presents MT10 results. PT-rank improves tail
+success from 0.529 (uniform) to 0.565 while maintaining
+head performance at 0.949. Statistical signicance testing conrms improvement (p = 0.04, paired t-test). PTrank with real RCS achieves 0.552 tail success, demonstrating only 3.2% degradation from ideal PT.
+Table 2 shows MT50 generalization. PT-rank achieves
+94.3% retention (MT50 tail success / MT10 tail success),
+compared to 77.9% for uniform baseline, demonstrating
+
+gration
+
+6.1
+
+1
+
+0.57
+
+Figure 4: Quantum hardware robustness. (a) Distribution comparison between ideal PT (blue) and real RCS
+from Quafu (orange). (b) Performance degradation under noise: real hardware achieves only 3.2% degradation.
+
+Figure 3: Exploration-noise mapping. (a) PT-OT yields
+mostly small perturbations with rare large jumps (ρ =
+0.20), outperforming xed noise and Gaussian baselines. (b) Cumulative reward over episodes shows PTOT achieves highest total reward and best-arm discovery.
+
+6
+
+0.4
+0.0
+
+0
+0.0
+
+0.6
+0.2
+
+50
+
+(b) Robustness to Noise
+
+0.58
+
+Ideal PT
+Real RCS (Quafu)
+
+0.8
+
+Density
+
+6
+
+(a) Quantum Hardware Distribution
+
+Exploration Performance
+250
+
+PT-OT
+Gaussian
+Fixed
+
+Cumulative Reward
+
+Density
+
+8
+
+Tail Success Rate
+
+5
+
+Noise Model
+
+RCS Data Collection
+
+Real RCS data is collected from the Quafu platform
+(Baihua chip): n = 15 qubits, depth ℓ = 28, m =
+100,000 shots. The raw bitstring counts are normalized
+to obtain the empirical distribution Preal .
+3
+
+8.2
+
+Table 1: Meta-World MT10 Results (mean ± std, 3
+seeds)
+Head
+
+Tail
+
+Overall
+
+CVaR
+
+Uniform
+Empirical
+Inv-freq
+
+.949
+.950
+.930
+
+.529
+.176
+.602
+
+.806
+.670
+.768
+
+.504
+.121
+.564
+
+PT-rank (Exp(1))
+PT-rank (Real RCS)
+
+.949
+.947
+
+.565
+
+.818
+
+.552
+
+.812
+
+Table 3 presents baseline comparison on MT10. PT-rank
+achieves highest tail success (0.565) with competitive
+computational cost (1.3× uniform), outperforming Focal
+Loss (0.541), DRO (0.548), and Meta-Weight (0.552).
+Table 3: Baseline Comparison on MT10
+
+.548
+.536
+
+strong generalization from synthetic to complex embodied benchmarks.
+Table 2: Meta-World MT50 Generalization
+Method
+
+MT10 Tail
+
+MT50 Tail
+
+Retention
+
+Uniform
+PT-rank
+
+.529
+.565
+
+.412
+.533
+
+77.9%
+94.3%
+
+(a) Meta-World MT10 Results
+Tail Success Rate
+
+Success Rate
+
+0.8
+0.6
+0.4
+Head
+Tail
+Overall
+
+0.2
+0.0
+
+k
+q
+al
+Uniform Empiric Inv-Fre PT-ran
+
+l
+
+PT-rea
+
+0.4
+
+MT10 Tail
+MT50 Tail
+
+94.3%
+
+77.9%
+
+Uniform
+
+PT-rank
+
+Figure 5: Meta-World results. (a) MT10 performance:
+PT-rank achieves best tail success while maintaining
+head. (b) MT50 generalization: PT-rank achieves 94.3%
+retention vs. 77.9% for uniform.
+
+8.1
+
+0.60
+
+Tail Success Rate
+
+8
+
+Time
+
+Uniform
+Focal Loss
+Logit Adj.
+DRO
+Meta-Weight
+
+
+A
+A
+C
+D
+
+.529
+.541
+.538
+.548
+.552
+
+1.0×
+1.2×
+1.1×
+2.5×
+3.8×
+
+PT-rank
+
+PT
+
+.565
+
+1.3×
+
+Component Removed
+
+Tail
+
+∆
+
+Full Method
+Quantum Prior (η = 0)
+Rank Matching (random)
+Nonlinear Utility (linear)
+Multidim OT (1D)
+
+.565
+.529
+.502
+.551
+.543
+
+
+−6.4%
+−11.2%
+−2.5%
+−3.9%
+
+Figure 6 visualizes baseline comparison and ablation.
+Panel (a) shows PT-rank outperforms all baseline methods in tail success. Panel (b) shows the ablation study:
+removing rank matching has the largest impact (red
+bar), conrming the importance of deterministic assignment.
+
+0.2
+0.0
+
+Tail
+
+Table 4: Ablation: Component Contributions
+
+(b) MT50 Generalization
+0.6
+
+Cat.
+
+Table 4 presents ablation study results. Removing
+quantum prior causes 6.4% degradation; removing rank
+matching causes 11.2% degradation, conrming each
+component's contribution.
+
+Figure 5 visualizes these results. Panel (a) shows
+MT10 performance across methods: PT-rank achieves
+best overall success while maintaining head performance.
+Panel (b) shows MT50 generalization with retention percentages annotated.
+1.0
+
+Method
+
+Baseline Comparison
+
+0.58
+0.56
+0.54
+0.52
+0.50
+
+Methods
+
+(a) Baseline Comparison (MT10)
+
+0.60
+
+Tail Success Rate
+
+Method
+
+Comparison Results
+
+Uniform baseline
+
+Uniform Focal Logit
+Loss Adj.
+
+DRO
+
+Meta PT-rank
+Weight
+
+(b) Ablation Study
+
+0.58
+0.56
+0.54
+0.52
+
+-2.5%
+
+-3.9%
+
+-6.4%
+-11.2%
+
+0.50
+0.48
+
+Full w/o PT w/o Rankw/o Nonlin
+w/o Multidim
+Method Prior Match Utility
+OT
+
+Figure 6: Baseline and ablation results. (a) PT-rank
+achieves highest tail success among all methods. (b)
+Ablation study: rank matching contributes most (11.2%
+degradation when removed).
+
+Four categories of long-tail learning methods are compared:
+Category A (Reweighting): Focal Loss [7], Logit
+Adjustment [10], Class-Balanced Loss [4].
+Category B (Resampling): Over-sampling,
+SMOTE [3].
+Category C (DRO): Distributionally Robust Optimization [15], CVaR Optimization [5].
+Category D (Meta-learning): Meta-Weight Net
+[14], Inuence Reweighting [13].
+
+9
+
+Related Work
+
+Quantum random circuits. The PorterThomas dis-
+
+tribution arises from the anti-concentration behavior of
+4
+
+random circuits [2, 1, 9]. Recent work extends analysis
+beyond ideal Haar regime.
+Long-tail learning. Methods include reweighting
+[7, 10, 4], resampling [3], distributionally robust optimization [15, 5, 11], and meta-learning [14, 13].
+Embodied AI. World models [6, 8] and imitation
+learning [17] address distributional challenges in embodied systems.
+Optimal transport. Monotone transport [16, 12]
+provides the theoretical foundation for the mappings.
+
+10
+
+[4] Yin Cui, Menglin Jia, Tsung-Yi Lin, Yang Song,
+and Serge Belongie. Class-balanced loss based on
+eective number of samples. In Proceedings of the
+
+IEEE/CVF Conference on Computer Vision and
+Pattern Recognition, pages 92689277, 2019.
+
+[5] Ramtin Keramati, Christoph Dann, Alex Tamkin,
+and Emma Brunskill. Being optimistic to be conservative: Quickly learning a cvar policy. In Pro-
+
+ceedings of the AAAI Conference on Articial Intelligence, 2020.
+
+[6] X. Li et al. A comprehensive survey on world models
+for embodied ai. arXiv preprint arXiv:2510.16732,
+2025.
+
+Discussion
+
+Limitations. Five key limitations have been addressed:
+
+[7] Tsung-Yi Lin, Priya Goyal, Ross Girshick, Kaiming
+He, and Piotr Dollár. Focal loss for dense object
+detection. In Proceedings of the IEEE International
+Conference on Computer Vision, pages 29802988,
+2017.
+
+(1) real embodied validation; (2) multidimensional transport; (3) nonlinear utility; (4) real quantum hardware;
+(5) comprehensive baselines. Remaining: Meta-World is
+still simulation; noise modeling is simplied; generalization to navigation/locomotion not tested.
+Broader Impact. Quantum randomness can serve as
+a principled distributional prior for embodied AI training.
+
+11
+
+[8] M. B. Lucas et al. Ecient visual navigation with
+world models. arXiv preprint arXiv:2510.16732,
+2025.
+[9] B. Magni et al. Anticoncentration in cliord circuits and beyond. arXiv preprint arXiv:2502.20455,
+2025.
+
+Conclusion
+
+A comprehensive framework has been presented
+for transforming PT-style quantum randomness into
+training-time distributions for long-tail embodied learning. Sample scheduling is solved by permutation-optimal
+rank matching; risk and exploration mappings are solved
+by monotone quantile transport; the framework extends
+to multidimensional perturbations via Copula preservation. Validation on Meta-World MT10/MT50, integration of real quantum hardware data, and comprehensive baseline comparison establish that PT-style quantum randomness admits implementable, theoretically
+grounded mappings with validated real-world applicability.
+
+[10] Aditya Krishna Menon, Sadeep Jayasumana,
+Ankit Singh Rawat, Himanshu Jain, Andreas Veit,
+and Sanjiv Kumar. Long-tail learning via logit adjustment. In International Conference on Learning
+Representations, 2021.
+[11] Viet Anh Nguyen et al. Distributionally robust optimization: A review. Mathematical Programming,
+2020.
+[12] Gabriel Peyré and Marco Cuturi. Computational
+optimal transport. Foundations and Trends in Machine Learning, 11(56):355607, 2019.
+[13] Mengye Ren, Wenyuan Zeng, Bowei Yang, and
+Raquel Urtasun. Learning to reweight examples for
+robust deep learning. In International Conference
+on Machine Learning, pages 43344343, 2018.
+
+References
+[1] Frank Arute et al. Quantum supremacy using a
+programmable superconducting processor. Nature,
+574:505510, 2019.
+
+[14] Jun Shu, Qi Xie, Lixuan Yi, Qian Zhao, Sanping Zhou, Zongben Xu, and Deyu Meng. Metaweight-net: Learning an explicit mapping for sample weighting. In Advances in Neural Information
+Processing Systems, volume 32, 2019.
+
+[2] Sergio Boixo, Sergei V Isakov, Vadim N Smelyanskiy, Ryan Babbush, Nan Ding, Zhang Jiang,
+John M Martinis, and Hartmut Neven. Characterizing quantum supremacy in near-term devices. arXiv
+preprint arXiv:1608.00263, 2017.
+
+[15] Aman Sinha, Hongseok Namkoong, and John
+Duchi. Certiable distributional robustness with
+principled adversarial training. In International
+Conference on Learning Representations, 2018.
+
+[3] Nitesh V Chawla, Kevin W Bowyer, Lawrence O
+Hall, and W Philip Kegelmeyer. Smote: Synthetic
+minority over-sampling technique. Journal of Articial Intelligence Research, 16:321357, 2002.
+
+[16] Cédric Villani. Optimal Transport: Old and New.
+Springer, 2008.
+5
+
+[17] J. Zhu et al. Beyond the majority: Long-tail imitation learning for robotic manipulation. arXiv
+preprint arXiv:2602.06512, 2026.
+
+6
+
+

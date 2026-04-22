@@ -1,0 +1,46 @@
+{
+    "task_2604201358523029585_result.csv": {
+        "support_size": 30003,
+        "sum": 0.9999999999999998,
+        "entropy": 10.13339432679841,
+        "cv": 0.6146476758273788,
+        "top_1_mass": 0.00016000000000000015,
+        "top_5_mass": 0.0007600000000000008,
+        "gini": -0.3277786734659862,
+        "file_path": "data/task_2604201358523029585_result.csv"
+    },
+    "task_2604201408246794658_result.csv": {
+        "support_size": 29981,
+        "sum": 0.9999999999999998,
+        "entropy": 10.1255496203415,
+        "cv": 0.6285410882352868,
+        "top_1_mass": 0.00017000000000000017,
+        "top_5_mass": 0.0007900000000000008,
+        "gini": -0.3346561615689932,
+        "file_path": "data/task_2604201408246794658_result.csv"
+    },
+    "task_2604201111555115048_result 2.csv": {
+        "support_size": 29913,
+        "sum": 0.9999999999999998,
+        "entropy": 10.123826271964408,
+        "cv": 0.627032390684899,
+        "top_1_mass": 0.00016108247422680523,
+        "top_5_mass": 0.0007752094072165021,
+        "gini": -0.3342893509250331,
+        "file_path": "data/task_2604201111555115048_result 2.csv"
+    },
+    "task_2604201410376483513_result.csv": {
+        "support_size": 29908,
+        "sum": 0.9999999999999999,
+        "entropy": 10.126985425121763,
+        "cv": 0.6201731906491915,
+        "top_1_mass": 0.0001700000000000002,
+        "top_5_mass": 0.0008000000000000009,
+        "gini": -0.33114113347599256,
+        "file_path": "data/task_2604201410376483513_result.csv"
+    },
+    "default_prior": {
+        "name": "task_2604201358523029585_result.csv",
+        "reason": "Selected based on highest combined score of entropy and support size, indicating a rich and stable heavy-tail distribution suitable for broad exploration."
+    }
+}

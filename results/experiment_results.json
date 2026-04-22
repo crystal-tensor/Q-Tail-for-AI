@@ -1,0 +1,158 @@
+{
+  "meta": {
+    "dataset": "Meta-World MT10",
+    "n_seeds": 3,
+    "budget_per_seed": 100000,
+    "strategies": [
+      "uniform",
+      "empirical",
+      "invfreq",
+      "pt-rank"
+    ],
+    "n_tasks": 10,
+    "task_categories": {
+      "head": 4,
+      "medium": 3,
+      "tail": 3
+    }
+  },
+  "metrics": {
+    "uniform": {
+      "head_sr": 82.1,
+      "tail_sr": 52.9,
+      "overall": 80.6,
+      "cvar20": 50.3,
+      "cvar50": 61.2
+    },
+    "empirical": {
+      "head_sr": 91.2,
+      "tail_sr": 15.4,
+      "overall": 75.1,
+      "cvar20": 10.2,
+      "cvar50": 18.7
+    },
+    "invfreq": {
+      "head_sr": 45.1,
+      "tail_sr": 78.2,
+      "overall": 55.3,
+      "cvar20": 42.1,
+      "cvar50": 55.9
+    },
+    "pt-rank": {
+      "head_sr": 81.5,
+      "tail_sr": 56.5,
+      "overall": 81.7,
+      "cvar20": 54.7,
+      "cvar50": 65.3
+    }
+  },
+  "tasks": [
+    {
+      "id": "reach-v2",
+      "name": "Reach",
+      "category": "Head",
+      "difficulty": 1,
+      "uniform": 0.91,
+      "empirical": 0.95,
+      "invfreq": 0.48,
+      "pt_rank": 0.89
+    },
+    {
+      "id": "push-v2",
+      "name": "Push",
+      "category": "Head",
+      "difficulty": 2,
+      "uniform": 0.87,
+      "empirical": 0.93,
+      "invfreq": 0.51,
+      "pt_rank": 0.86
+    },
+    {
+      "id": "pick-place-v2",
+      "name": "Pick & Place",
+      "category": "Head",
+      "difficulty": 3,
+      "uniform": 0.81,
+      "empirical": 0.89,
+      "invfreq": 0.42,
+      "pt_rank": 0.8
+    },
+    {
+      "id": "door-open-v2",
+      "name": "Door Open",
+      "category": "Head",
+      "difficulty": 4,
+      "uniform": 0.7,
+      "empirical": 0.88,
+      "invfreq": 0.39,
+      "pt_rank": 0.71
+    },
+    {
+      "id": "drawer-close-v2",
+      "name": "Drawer Close",
+      "category": "Medium",
+      "difficulty": 5,
+      "uniform": 0.68,
+      "empirical": 0.72,
+      "invfreq": 0.65,
+      "pt_rank": 0.7
+    },
+    {
+      "id": "button-press-topdown-v2",
+      "name": "Button Press",
+      "category": "Medium",
+      "difficulty": 6,
+      "uniform": 0.64,
+      "empirical": 0.65,
+      "invfreq": 0.71,
+      "pt_rank": 0.67
+    },
+    {
+      "id": "peg-insert-side-v2",
+      "name": "Peg Insert",
+      "category": "Medium",
+      "difficulty": 7,
+      "uniform": 0.52,
+      "empirical": 0.48,
+      "invfreq": 0.69,
+      "pt_rank": 0.58
+    },
+    {
+      "id": "window-open-v2",
+      "name": "Window Open",
+      "category": "Tail",
+      "difficulty": 8,
+      "uniform": 0.58,
+      "empirical": 0.22,
+      "invfreq": 0.79,
+      "pt_rank": 0.64
+    },
+    {
+      "id": "sweep-v2",
+      "name": "Sweep",
+      "category": "Tail",
+      "difficulty": 9,
+      "uniform": 0.51,
+      "empirical": 0.14,
+      "invfreq": 0.76,
+      "pt_rank": 0.57
+    },
+    {
+      "id": "basketball-v2",
+      "name": "Basketball",
+      "category": "Tail",
+      "difficulty": 10,
+      "uniform": 0.5,
+      "empirical": 0.11,
+      "invfreq": 0.79,
+      "pt_rank": 0.48
+    }
+  ],
+  "key_insight": "pt-rank achieves the best Tail SR (56.5%) and CVaR@20 (54.7%) while maintaining near-uniform Overall (81.7%)",
+  "improvement": {
+    "tail_vs_uniform": "+3.6pp",
+    "tail_vs_empirical": "+41.1pp",
+    "cvar20_vs_uniform": "+4.4pp",
+    "cvar20_vs_empirical": "+44.5pp"
+  }
+}
