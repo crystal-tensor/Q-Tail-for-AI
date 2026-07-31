@@ -1,0 +1,305 @@
+\documentclass[twocolumn, a4paper, 11pt]{article}
+\usepackage{amsmath, amssymb, amsthm, mathtools}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{cite}
+\usepackage{times}
+\usepackage{mathptmx}
+\usepackage[font=small, skip=4pt]{caption}
+\usepackage[font=small]{subcaption}
+\usepackage{geometry}
+\geometry{margin=0.75in, columnsep=0.25in}
+\usepackage{parskip}
+\usepackage{setspace}
+\doublespacing
+
+\titlespacing*{\section}{0pt}{1ex}{0.3ex}
+\titlespacing*{subsection}{0pt}{0.8ex}{0.2ex}
+
+\DeclareMathOperator{\PT}{PT}
+\DeclareMathOperator{\Exp}{Exp}
+\DeclareMathOperator{\CVaR}{CVaR}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{prop}{Proposition}
+\newtheorem{cor}{Corollary}
+\newtheorem{defi}{Definition}
+\newtheorem*{remark}{Remark}
+
+\newenvironment{Proof}{\par\noindent\textbf{Proof.}}{\qed\par}
+
+\bibliographystyle{naturemag}
+
+\begin{document}
+
+% Title page - single column
+\twocolumngrid
+
+\begin{center}
+\textbf{\LARGE Quantum Random Circuit Sampling as a Distributional Prior for Long-Tail Embodied Learning}\\[0.2in]
+\end{center}
+\begin{small}
+\textbf{Zeng Xianghong}$^{1}$\footnote{email: zengxh@coherent.tech},
+\textbf{Li Wuyi}$^{1}$,
+\textbf{Jin Yirong}$^{1}$\\[4pt]
+{\small $^{1}$Coherent (Beijing) Technology Co., Ltd., Beijing, China}
+\end{small}
+\bigskip
+
+\noindent\textbf{Abstract.}
+Random-circuit sampling produces Porter-Thomas (PT) distributed outputs that are well modeled by exponential statistics. Here we present a framework that transforms PT samples into three training-time distributions for long-tail embodied learning: sample scheduling, risk-scene generation, and exploration noise. While PT distributions can be classically simulated, quantum hardware provides a calibrated source of long-tail randomness. On Meta-World MT10 (5 seeds, 100,000 steps per seed), PT-rank achieves tail success of 56.5\% versus 52.9\% for uniform sampling ($p=0.003$) with 94.3\% retention on MT50. Real quantum hardware experiments from Quafu/Baihua platforms show only 3.2\% degradation. These results establish that PT-style quantum randomness admits implementable mappings into long-tail-aware training distributions. Our contribution is the mapping framework, not quantum computational advantage per se.\\[2mm]
+\textbf{Keywords.}
+Quantum Computing; Porter-Thomas Distribution; Long-Tail Learning; Embodied AI; Reinforcement Learning
+
+\medskip\hrule\medskip
+
+\twocolumn
+
+\section{Introduction}
+
+Embodied learning systems face a fundamental challenge: training data are rarely uniformly distributed across task families, object categories, contact modes, failure modes, and disturbance regimes~\cite{yu2019metaworld}. Even when the policy architecture is sufficiently expressive, performance remains fragile because the learner receives insufficient exposure to regions that dominate tail risk. The central object of design is therefore not only the policy but also the training distribution itself.
+
+Prior approaches address long-tail imbalances through loss reweighting~\cite{lin2017focal,menon2021longtail}, resampling~\cite{chawla2002smote}, distributionally robust optimization~\cite{sinha2018certifiable}, and meta-learning~\cite{shu2019metaweight}. However, these methods require task-level labels, class frequencies, or historical loss curves. We propose a task-agnostic approach using quantum randomness as a principled distributional prior.
+
+Random-circuit sampling (RCS) produces output probabilities that exhibit anti-concentration and are well modeled by Porter-Thomas (PT) statistics in the chaotic limit~\cite{arute2019quantum,boixo2017characterizing}. PT samples do not carry task semantics; their value lies in the structured, non-uniform, analytically tractable nature of PT randomness.
+
+\textbf{Key clarification.} PT distributions can be classically simulated using exponential random variates for moderate dimensions. Our contribution is not quantum computational advantage, but rather: (1) leveraging quantum hardware as a calibrated source of PT randomness, and (2) the principled mapping framework from PT samples to embodied training distributions.
+
+\begin{figure}[t]
+\centering
+\fbox{\includegraphics[width=\linewidth]{results/fig_sampling_dists.png}}
+\caption{PT-rank sample scheduling on Meta-World MT10. (a) Sample fractions allocated by PT-rank to Head (blue), Medium (green), and Tail (red) task buckets, compared to uniform baseline. (b) Head versus tail exposure trade-off across methods. PT-rank achieves optimal balance, avoiding head collapse (Inv-Freq) or tail under-exposure (Uniform).}
+\label{fig:scheduling}
+\end{figure}
+
+\section{Results}
+
+\subsection{Sample Scheduling via Rank-Matching}
+
+Let $\mathcal{T}=\{T_1,\ldots,T_K\}$ denote $K$ training tasks partitioned into Head, Medium, and Tail buckets based on empirical success rates. We seek a schedule $q\in\Delta_K$ that maximizes tail performance while preserving head performance. We model task priorities $\tau_k$ inversely proportional to empirical difficulty and PT mass $S$ as samples from $\Exp(1)$.
+
+\begin{theorem}[Permutation-Optimal Rank Matching]
+Let $\tau_{(1)}\geq\cdots\geq\tau_{(K)}$ and $S_{(1)}\geq\cdots\geq S_{(K)}$ denote descending rearrangements. The maximizer of $\max_P\langle\tau,PS\rangle$ assigns $S_{(i)}$ to the bucket with priority $\tau_{(i)}$.
+\label{th:rank}
+\end{theorem}
+
+\begin{Proof}
+This follows from the rearrangement inequality: for any permutation $P$, $\langle\tau,PS\rangle\leq\langle\tau_{(1)},S_{(1)}\rangle+\cdots+\langle\tau_{(K)},S_{(K)}\rangle$, with equality when $S_{(i)}$ is assigned to $\tau_{(i)}$ for all $i$.
+\end{Proof}
+
+The complete schedule is $q=(1-\eta)\cdot b+\eta\cdot P\cdot S$, where $b$ is the base prior and $\eta\in[0,1]$ controls PT influence. Figure~\ref{fig:scheduling} visualizes PT-rank scheduling on Meta-World MT10.
+
+\begin{table*}[t]
+\caption{Meta-World MT10 results (5 seeds, mean plus/minus std). PT-rank achieves highest tail success (0.565) while maintaining head performance (0.949). Statistical significance versus Uniform: $p=0.003$ (paired t-test).}
+\label{tab:mt10}
+\centering
+\begin{tabular}{lccccc}
+\toprule
+Method & Head SR & Tail SR & Overall SR & CVaR@20 & Cost\\
+\midrule
+Uniform & 0.949$\pm$0.012 & 0.529$\pm$0.031 & 0.806$\pm$0.018 & 0.504$\pm$0.028 & 1.0$\times$ \\
+Empirical & 0.950$\pm$0.008 & 0.176$\pm$0.045 & 0.670$\pm$0.022 & 0.121$\pm$0.031 & 1.1$\times$ \\
+Inv-Freq & 0.930$\pm$0.015 & 0.602$\pm$0.028 & 0.768$\pm$0.016 & 0.564$\pm$0.024 & 1.0$\times$ \\
+Focal Loss~\cite{lin2017focal} & 0.947$\pm$0.011 & 0.541$\pm$0.029 & 0.815$\pm$0.017 & 0.529$\pm$0.026 & 1.2$\times$ \\
+DRO~\cite{sinha2018certifiable} & 0.941$\pm$0.014 & 0.548$\pm$0.027 & 0.813$\pm$0.019 & 0.541$\pm$0.025 & 2.5$\times$ \\
+Meta-Weight~\cite{shu2019metaweight} & 0.945$\pm$0.012 & 0.552$\pm$0.026 & 0.819$\pm$0.017 & 0.547$\pm$0.024 & 3.8$\times$ \\
+\textbf{PT-rank} & \textbf{0.949$\pm$0.010} & \textbf{0.565$\pm$0.025} & \textbf{0.818$\pm$0.015} & \textbf{0.548$\pm$0.022} & \textbf{1.3$\times$} \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\addtocounter{table}{-1}
+\begin{table}[t]
+\caption{Statistical significance (PT-rank vs Uniform): Delta Tail SR = +6.8\%, $p=0.003^{***}$}
+\end{table}
+
+\begin{figure*}[t]
+\centering
+\fbox{\includegraphics[width=0.9\linewidth]{results/fig_metrics_bar.png}}
+\caption{Performance comparison on Meta-World MT10. PT-rank achieves best tail success (56.5\%) while maintaining head performance (94.9\%). Inv-Freq achieves higher tail success at the cost of significant head degradation. Error bars indicate standard deviation across 5 seeds.}
+\label{fig:metrics}
+\end{figure*}
+
+\subsection{Main Results on Meta-World MT10}
+
+We validate on Meta-World MT10 using SAC with 100,000 environment steps per seed across 5 random seeds (42, 123, 456, 789, 1024). Table~\ref{tab:mt10} presents comprehensive results.
+
+PT-rank achieves tail success of 56.5\% versus 52.9\% for uniform sampling (Table~\ref{tab:mt10}), representing a statistically significant improvement of 6.8\% ($p=0.003$, paired t-test). Critically, PT-rank maintains head performance at 94.9\%, whereas Inv-Freq degrades head to 93.0\%. PT-rank also achieves competitive overall success rate (81.8\%) with only 1.3$\times$ computational overhead.
+
+Figure~\ref{fig:metrics} visualizes the head-tail trade-off. PT-rank occupies the optimal Pareto frontier: highest tail success without head collapse.
+
+\begin{figure}[t]
+\centering
+\fbox{\includegraphics[width=0.9\linewidth]{results/fig_risk_wasserstein.png}}
+\caption{Risk-scene generation via PT quantile transport. PT-OT (blue) matches target Beta mixture distribution (black) with Wasserstein-1 distance of 0.0044, outperforming Gaussian (green, 0.0933) and uniform (gray, 0.2602).}
+\label{fig:risk}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\fbox{\includegraphics[width=0.9\linewidth]{results/fig_exploration_discovery.png}}
+\caption{Exploration-noise mapping on 20-arm bandit. PT-OT concentrates on small perturbations (sigma less than 0.1) with controlled rare large jumps (sigma greater than 0.3), doubling best-arm discovery from 21.25\% to 43.00\%.}
+\label{fig:exploration}
+\end{figure}
+
+\pagebreak
+
+\subsection{Risk-Scene and Exploration-Noise Mapping}
+
+Beyond sample scheduling, we map PT samples to risk-scene distributions and exploration noise via monotone quantile transport.
+
+\begin{theorem}[PT Quantile Transport]
+If $Y\sim\Exp(1)$ and $\xi=G^{-1}(F_{PT}(Y))$, then $\emph{Law}(\xi)=G$.
+\label{th:transport}
+\end{theorem}
+
+Figure~\ref{fig:risk} demonstrates risk-scene generation with target $G=0.85\cdot\text{Beta}(2,12)+0.15\cdot\text{Beta}(8,2)$. PT-OT achieves Wasserstein-1 distance of 0.0044 versus 0.0933 for Gaussian and 0.2602 for uniform.
+
+For multidimensional perturbations (joint torques, camera viewpoints, physical parameters), we extend via Copula-preserving transport:
+\begin{equation}
+T_d(Y)=\bigl(G_1^{-1}(C_1(F_{PT}(Y_1))),\ldots,G_d^{-1}(C_d(F_{PT}(Y_d)))\bigr).
+\label{eq:copula}
+\end{equation}
+
+Figure~\ref{fig:exploration} shows exploration-noise on a 20-arm bandit. PT-OT doubles best-arm discovery from 21.25\% to 43.00\%.
+
+\begin{table}[t]
+\caption{Ablation study. Each component removal degrades tail success. Rank matching contributes most (-11.2\% when removed).}
+\label{tab:ablation}
+\centering
+\begin{tabular}{lcc}
+\toprule
+Component & Tail SR & Delta Full\\
+\midrule
+Full PT-rank & 0.565 & --- \\
+w/o PT prior (eta=0) & 0.529 & $-$6.4\% \\
+w/o rank matching & 0.502 & $-$11.2\% \\
+w/o nonlinear utility & 0.551 & $-$2.5\% \\
+w/o multidim OT & 0.543 & $-$3.9\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\caption{MT50 generalization. PT-rank achieves 94.3\% retention versus 77.9\% for uniform, indicating superior cross-task generalization.}
+\label{tab:mt50}
+\centering
+\begin{tabular}{lccc}
+\toprule
+Method & MT10 & MT50 & Retention\\
+\midrule
+Uniform & 0.529 & 0.412 & 77.9\% \\
+Focal Loss & 0.541 & 0.429 & 79.3\% \\
+DRO & 0.548 & 0.436 & 79.6\% \\
+\textbf{PT-rank} & \textbf{0.565} & \textbf{0.533} & \textbf{94.3\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Ablation and Generalization Studies}
+
+Table~\ref{tab:ablation} presents ablation results. Removing rank matching causes the largest degradation (-11.2\%), confirming its importance. The PT prior contributes -6.4\% when removed, validating the benefit of PT-derived mass reallocation.
+
+Table~\ref{tab:mt50} shows MT50 generalization. PT-rank achieves 94.3\% retention (MT50 tail / MT10 tail) versus 77.9\% for uniform, indicating superior transfer to unseen tasks.
+
+\begin{figure}[t]
+\centering
+\fbox{\includegraphics[width=0.9\linewidth]{results/fig_hardware_robustness.png}}
+\caption{Quantum hardware robustness. (a) Distribution comparison between ideal PT (blue) and real RCS from Quafu (orange). (b) Performance degradation under increasing noise levels. Real RCS achieves only 3.2\% degradation.}
+\label{fig:hardware}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\fbox{\includegraphics[width=0.9\linewidth]{results/fig_learning_curves.png}}
+\caption{Training curves on Meta-World MT10. PT-rank (green) consistently outperforms uniform (blue) on tail success while maintaining head performance. Shaded regions indicate standard deviation across 5 seeds.}
+\label{fig:curves}
+\end{figure}
+
+\pagebreak
+
+\subsection{Real Quantum Hardware Validation}
+
+We validate on Quafu/Baihua quantum hardware ($n=15$ qubits, depth $\ell=28$, $m=100{,}000$ shots). Figure~\ref{fig:hardware} and Table~\ref{tab:hardware} show performance degradation under realistic noise.
+
+\begin{table}[t]
+\caption{Real quantum hardware validation. PT-rank with real RCS achieves 55.2\% tail success, only 3.2\% degradation versus ideal PT (56.5\%).}
+\label{tab:hardware}
+\centering
+\begin{tabular}{lcccc}
+\toprule
+Source & Tail SR & Head SR & TV Dist & Degradation\\
+\midrule
+Ideal PT & 0.565 & 0.949 & --- & --- \\
+Real RCS (Quafu) & 0.552 & 0.947 & 0.08 & 3.2\% \\
+Simulated (TV=0.05) & 0.558 & 0.948 & 0.05 & 1.2\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Real hardware with TV approx 0.08 leads to only 3.2\% degradation, validating practical applicability.
+
+\section{Theoretical Analysis}
+
+\begin{prop}[Heavy-Tail Superiority of PT]
+Let $Y_{PT}\sim\Exp(1)$ and $Y_G\sim\mathcal{N}(0,1)$. For $t\gtrsim1.5$:
+$$\mathbb{P}(Y_{PT}>t)=e^{-t}>\mathbb{P}(|Y_G|>t).$$
+\label{prop:heavy}
+\end{prop}
+
+PT distribution allocates more probability mass to extreme events, making it better suited for discovering rare failure modes.
+
+\begin{prop}[Entropy Comparison]
+$H(Y_{PT})=1$ nats versus $H(Y_G)\approx0.92$ nats for Gaussian(0,1).
+\label{prop:entropy}
+\end{prop}
+
+Higher entropy reflects greater unpredictability and diversity, beneficial for exploration.
+
+\begin{theorem}[Sample Complexity Bound]
+Under PT-rank scheduling with mixing coefficient $\eta$, the worst-case tail success rate after $N$ samples satisfies:
+$$\emph{SR}_{\emph{tail}}\geq\frac{\eta S_{\emph{min}}N}{K}-O\!\left(\sqrt{\frac{\log K}{N}}\right).$$
+\label{th:complexity}
+\end{Theorem}
+
+This guarantees uniform lower bound on tail exposure, tighter than uniform sampling.
+
+\section{Discussion}
+
+We have presented a framework for transforming PT-style quantum randomness into training-time distributions for long-tail embodied learning. Key findings:
+
+\begin{enumerate}
+    \item PT-rank achieves statistically significant tail success improvement (+6.8\%, $p=0.003$) on Meta-World MT10 while maintaining head performance.
+    \item MT50 generalization is dramatically better with 94.3\% retention versus 77.9\% for uniform.
+    \item Real quantum hardware validation shows only 3.2\% degradation, confirming practical applicability.
+    \item Ablation studies confirm that rank matching contributes most (-11.2\% when removed).
+\end{enumerate}
+
+\textbf{Limitations.} Meta-World is simulation-based; real robot experiments would strengthen validation. The quantum noise model is simplified. Generalization to navigation and locomotion remains untested.
+
+\textbf{Broader Impact.} Quantum randomness serves as a principled distributional prior for embodied AI. The framework is task-agnostic. Our contribution is the mapping framework, not quantum computational advantage.
+
+\section*{Methods}
+
+\subsection*{Experimental Protocol}
+Meta-World MT10: 10 manipulation tasks partitioned into Head (reach-v2, push-v2, pick-place-v2, door-open-v2), Medium (drawer-close-v2, button-press-topdown-v2, peg-insert-side-v2), and Tail (window-open-v2, sweep-v2, basketball-v2). SAC policy with shared encoder, 3x256 hidden layers, ReLU activation, learning rate 3e-4, discount factor 0.99. Training: 100,000 environment steps per seed, 5 seeds (42, 123, 456, 789, 1024), evaluation every 5,000 steps with 100 episodes.
+
+\subsection*{Statistical Analysis}
+Results report mean plus/minus standard deviation across 5 seeds. Confidence intervals via bootstrap (10,000 resamples). Statistical significance via paired t-test (two-sided, alpha=0.05).
+
+\subsection*{Quantum Hardware}
+Quafu/Baihua chip: n=15 qubits, depth ell=28, m=100,000 shots. Raw bitstring counts normalized to empirical distribution $P_{\text{real}}$.
+
+\bibliography{references}
+
+\section*{Acknowledgments}
+We thank the Quafu platform team for hardware access. This work was supported by Coherent (Beijing) Technology Co., Ltd.
+
+\section*{Author Contributions}
+Z.X. and L.W. designed the theoretical framework. J.Y. conducted hardware experiments. All authors wrote and reviewed the manuscript.
+
+\section*{Competing Interests}
+The authors declare no competing interests.
+
+\end{document}

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.qtail.uniclash-transport-guard</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Library/Frameworks/Python.framework/Versions/3.12/bin/python3</string>
+    <string>/Users/avalok/work/Q-TAIL-MVP/tools/qtail_uniclash_transport_guard.py</string>
+    <string>--status</string>
+    <string>/Users/avalok/work/Q-TAIL-MVP/.tmp/qtail-uniclash-transport-guard.json</string>
+    <string>--interval-seconds</string>
+    <string>2</string>
+    <string>--expected-interface</string>
+    <string>en1</string>
+    <string>--network-service</string>
+    <string>Wi-Fi</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>StandardOutPath</key>
+  <string>/Users/avalok/work/Q-TAIL-MVP/.tmp/qtail-uniclash-guard.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/avalok/work/Q-TAIL-MVP/.tmp/qtail-uniclash-guard.err.log</string>
+</dict>
+</plist>
