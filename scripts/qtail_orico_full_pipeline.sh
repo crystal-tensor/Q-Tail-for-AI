@@ -16,10 +16,12 @@ GSUTIL="$JOB_ROOT/envs/downloader/bin/gsutil"
 PYTHON="/Library/Frameworks/Python.framework/Versions/3.12/bin/python3"
 REMOTE_URI="gs://gresearch/robotics/droid"
 REMOTE_BYTES=3700745265151
+SOURCE_PROBE_REPORT="$RESULT_ROOT/droid_source_probe.json"
 OBJECT_MANIFEST="$RESULT_ROOT/droid_object_manifest.json"
 CHECKSUM_MANIFEST="$RESULT_ROOT/droid_object_checksum_manifest.json"
 CHECKSUM_LEDGER="$RESULT_ROOT/droid_object_checksum_ledger.json"
 CHECKSUM_QUARANTINE="$RESULT_ROOT/checksum_quarantine"
+CHECKSUM_STAT_CONTINUITY_REPORT="$RESULT_ROOT/droid_checksum_stat_continuity.json"
 RELEASE_METADATA_AUDIT="$RESULT_ROOT/droid_release_metadata_audit.json"
 DOWNLOAD_MARKER="$MARKER_ROOT/DROID_DOWNLOAD_COMPLETE"
 DOWNLOAD_MARKER_LINK="$RESULT_ROOT/download_completion_marker.json"
@@ -52,6 +54,9 @@ MANIFEST_SELFTEST="$ROOT/tools/qtail_artifact_manifest_merge_selftest.py"
 MANIFEST_SELFTEST_REPORT="$RESULT_ROOT/droid_artifact_manifest_merge_selftest.json"
 SHELL_CONTRACT_SELFTEST="$ROOT/tools/qtail_pipeline_shell_contract_selftest.py"
 SHELL_CONTRACT_SELFTEST_REPORT="$RESULT_ROOT/droid_pipeline_shell_contract_selftest.json"
+PIPELINE_GENERATION_GATE_REPORT="$RESULT_ROOT/pipeline_generation_gate.json"
+ORCHESTRATION_SNAPSHOT_MANIFEST="$JOB_ROOT/code/qtail_orchestration/SHA256SUMS"
+ORCHESTRATION_SNAPSHOT_PUBLISHER="$ROOT/tools/qtail_publish_orchestration_snapshot.py"
 TRAINING_GATE_ORDER_SELFTEST="$ROOT/tools/qtail_droid_training_gate_order_selftest.py"
 TRAINING_GATE_ORDER_SELFTEST_REPORT="$RESULT_ROOT/droid_training_gate_order_selftest.json"
 FINAL_QA_CONTRACT_BLOCKER="$RESULT_ROOT/final_qa_contract_blocked.json"
@@ -73,6 +78,427 @@ refresh_status() {
 
 log() {
   printf '[%s] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" | tee -a "$LOG"
+}
+
+write_pipeline_started_marker() {
+  "$PYTHON" - \
+    "$MARKER_ROOT/PIPELINE_STARTED" \
+    "$ROOT/scripts/qtail_orico_full_pipeline.sh" \
+    "$$" \
+    "$PPID" \
+    "$LOCK_DIR" \
+    "$JOB_ROOT" <<'PY'
+import hashlib
+import json
+import os
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+marker = Path(sys.argv[1])
+script = Path(sys.argv[2])
+pid = int(sys.argv[3])
+ppid = int(sys.argv[4])
+lock_path = Path(sys.argv[5])
+job_root = Path(sys.argv[6])
+payload = {
+    "format_version": "qtail_pipeline_started_marker_v2",
+    "generated_at": datetime.now(timezone.utc).isoformat(),
+    "status": "running",
+    "pid": pid,
+    "ppid": ppid,
+    "script": str(script),
+    "script_sha256": hashlib.sha256(script.read_bytes()).hexdigest(),
+    "lock_path": str(lock_path),
+    "lock_owner_pid": int(str(lock_path.readlink())),
+    "job_root": str(job_root),
+    "claim_boundary": (
+        "This binds the unique pipeline process to the script bytes observed "
+        "immediately after acquiring the pipeline lock. A later workspace "
+        "edit is a pending generation until the supervised handoff starts a "
+        "new process and rewrites this marker."
+    ),
+}
+if payload["lock_owner_pid"] != pid:
+    raise SystemExit("pipeline lock owner differs from marker pid")
+temporary = marker.with_name(f".{marker.name}.{os.getpid()}.tmp")
+temporary.write_text(
+    json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+    encoding="utf-8",
+)
+os.replace(temporary, marker)
+PY
+}
+
+require_pipeline_generation_marker() {
+  local gate="$1"
+  "$PYTHON" - \
+    "$MARKER_ROOT/PIPELINE_STARTED" \
+    "$ROOT/scripts/qtail_orico_full_pipeline.sh" \
+    "$$" \
+    "$LOCK_DIR" \
+    "$JOB_ROOT" \
+    "$PIPELINE_GENERATION_GATE_REPORT" \
+    "$gate" <<'PY'
+import hashlib
+import json
+import os
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+marker_path = Path(sys.argv[1])
+script = Path(sys.argv[2])
+pid = int(sys.argv[3])
+lock_path = Path(sys.argv[4])
+job_root = Path(sys.argv[5])
+report_path = Path(sys.argv[6])
+gate = sys.argv[7]
+try:
+    marker = json.loads(marker_path.read_text(encoding="utf-8"))
+except (OSError, json.JSONDecodeError):
+    marker = {}
+try:
+    lock_owner_pid = int(str(lock_path.readlink()))
+except (OSError, ValueError):
+    lock_owner_pid = None
+script_sha256 = hashlib.sha256(script.read_bytes()).hexdigest()
+command = subprocess.run(
+    ["ps", "-p", str(pid), "-o", "command="],
+    check=False,
+    capture_output=True,
+    text=True,
+).stdout.strip()
+expected_command = f"/bin/zsh {script}"
+checks = {
+    "semantic_marker": (
+        marker.get("format_version")
+        == "qtail_pipeline_started_marker_v2"
+    ),
+    "running_status": marker.get("status") == "running",
+    "marker_pid_matches": marker.get("pid") == pid,
+    "marker_script_matches": marker.get("script") == str(script),
+    "marker_job_root_matches": marker.get("job_root") == str(job_root),
+    "marker_sha_matches_current_source": (
+        marker.get("script_sha256") == script_sha256
+    ),
+    "marker_lock_owner_matches": marker.get("lock_owner_pid") == pid,
+    "live_lock_owner_matches": lock_owner_pid == pid,
+    "live_command_matches": command == expected_command,
+}
+passed = all(checks.values())
+try:
+    previous = json.loads(report_path.read_text(encoding="utf-8"))
+except (OSError, json.JSONDecodeError):
+    previous = {}
+history = previous.get("gates", [])
+if not isinstance(history, list):
+    history = []
+entry = {
+    "gate": gate,
+    "checked_at": datetime.now(timezone.utc).isoformat(),
+    "passed": passed,
+    "pid": pid,
+    "lock_owner_pid": lock_owner_pid,
+    "command": command,
+    "expected_command": expected_command,
+    "marker_script_sha256": marker.get("script_sha256"),
+    "current_script_sha256": script_sha256,
+    "checks": checks,
+}
+history = [
+    item for item in history
+    if isinstance(item, dict) and item.get("gate") != gate
+]
+history.append(entry)
+payload = {
+    "format_version": "qtail_pipeline_generation_gate_v1",
+    "generated_at": entry["checked_at"],
+    "status": "passed" if passed else "blocked",
+    "latest_gate": gate,
+    "gates": history,
+    "claim_boundary": (
+        "Each irreversible stage requires the semantic start marker, unique "
+        "live pipeline command, pipeline lock owner, and current script "
+        "SHA-256 to remain bound to this PID. A mismatch prevents checksum, "
+        "environment capture, or formal training from advancing."
+    ),
+}
+report_path.parent.mkdir(parents=True, exist_ok=True)
+temporary = report_path.with_name(
+    f".{report_path.name}.{os.getpid()}.tmp"
+)
+temporary.write_text(
+    json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+    encoding="utf-8",
+)
+os.replace(temporary, report_path)
+if not passed:
+    raise SystemExit(1)
+PY
+}
+
+validate_droid_source_probe_marker() {
+  "$PYTHON" - \
+    "$MARKER_ROOT/DROID_SOURCE_PROBED" \
+    "$SOURCE_PROBE_REPORT" \
+    "$REMOTE_URI" \
+    "$REMOTE_BYTES" \
+    "$JOB_ROOT" <<'PY'
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+marker_path = Path(sys.argv[1])
+report_path = Path(sys.argv[2])
+source = sys.argv[3]
+expected_bytes = int(sys.argv[4])
+job_root = sys.argv[5]
+try:
+    marker = json.loads(marker_path.read_text(encoding="utf-8"))
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+except (OSError, json.JSONDecodeError):
+    raise SystemExit(1)
+report_sha256 = hashlib.sha256(report_path.read_bytes()).hexdigest()
+storage = report.get("storage", {})
+if (
+    marker.get("format_version")
+    != "qtail_droid_source_probe_marker_v2"
+    or marker.get("status") != "verified"
+    or marker.get("source") != source
+    or marker.get("remote_bytes") != expected_bytes
+    or marker.get("job_root") != job_root
+    or marker.get("report") != str(report_path)
+    or marker.get("report_sha256") != report_sha256
+    or marker.get("capacity_gate_passed_at_probe") is not True
+    or report.get("status") != "verified"
+    or report.get("source") != source
+    or report.get("remote_bytes") != expected_bytes
+    or report.get("job_root") != job_root
+    or not isinstance(storage, dict)
+    or storage.get("capacity_gate_passed") is not True
+):
+    raise SystemExit(1)
+PY
+}
+
+validate_openx_migration_marker() {
+  "$PYTHON" - \
+    "$MARKER_ROOT/OPENX_MIGRATION_COMPLETE" \
+    "$OPENX_SOURCE" \
+    "$OPENX_TARGET" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+marker = Path(sys.argv[1])
+source = Path(sys.argv[2])
+target = Path(sys.argv[3])
+try:
+    payload = json.loads(marker.read_text(encoding="utf-8"))
+except (OSError, json.JSONDecodeError):
+    raise SystemExit(1)
+if (
+    payload.get("format_version") != "qtail_openx_migration_marker_v2"
+    or payload.get("status") != "verified"
+    or payload.get("source_symlink") != str(source)
+    or payload.get("resolved_source") != str(target)
+    or payload.get("target") != str(target)
+    or not source.is_symlink()
+    or source.resolve() != target
+    or not target.is_dir()
+):
+    raise SystemExit(1)
+file_count = 0
+logical_bytes = 0
+dataset_file_count = 0
+dataset_logical_bytes = 0
+excluded_metadata = []
+try:
+    for path in sorted(target.rglob("*"), key=lambda item: item.as_posix()):
+        if path.is_file():
+            size = path.stat().st_size
+            file_count += 1
+            logical_bytes += size
+            if path.name == ".DS_Store":
+                excluded_metadata.append(
+                    {
+                        "path": str(path.relative_to(target)),
+                        "bytes": size,
+                    }
+                )
+            else:
+                dataset_file_count += 1
+                dataset_logical_bytes += size
+except OSError:
+    raise SystemExit(1)
+if (
+    payload.get("file_count") != file_count
+    or payload.get("logical_bytes") != logical_bytes
+    or payload.get("dataset_file_count") != dataset_file_count
+    or payload.get("dataset_logical_bytes") != dataset_logical_bytes
+    or payload.get("excluded_filesystem_metadata") != excluded_metadata
+):
+    raise SystemExit(1)
+PY
+}
+
+write_openx_migration_marker() {
+  "$PYTHON" - \
+    "$MARKER_ROOT/OPENX_MIGRATION_COMPLETE" \
+    "$OPENX_SOURCE" \
+    "$OPENX_TARGET" <<'PY'
+import json
+import os
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+marker = Path(sys.argv[1])
+source = Path(sys.argv[2])
+target = Path(sys.argv[3])
+if not source.is_symlink() or source.resolve() != target or not target.is_dir():
+    raise SystemExit(1)
+file_count = 0
+logical_bytes = 0
+dataset_file_count = 0
+dataset_logical_bytes = 0
+excluded_metadata = []
+for path in sorted(target.rglob("*"), key=lambda item: item.as_posix()):
+    if path.is_file():
+        size = path.stat().st_size
+        file_count += 1
+        logical_bytes += size
+        if path.name == ".DS_Store":
+            excluded_metadata.append(
+                {
+                    "path": str(path.relative_to(target)),
+                    "bytes": size,
+                }
+            )
+        else:
+            dataset_file_count += 1
+            dataset_logical_bytes += size
+payload = {
+    "format_version": "qtail_openx_migration_marker_v2",
+    "generated_at": datetime.now(timezone.utc).isoformat(),
+    "status": "verified",
+    "source_symlink": str(source),
+    "resolved_source": str(source.resolve()),
+    "target": str(target),
+    "file_count": file_count,
+    "logical_bytes": logical_bytes,
+    "dataset_file_count": dataset_file_count,
+    "dataset_logical_bytes": dataset_logical_bytes,
+    "excluded_filesystem_metadata": excluded_metadata,
+    "claim_boundary": (
+        "This binds the workspace symlink, total directory bytes, and dataset "
+        "bytes after explicitly excluding .DS_Store metadata to the ORICO "
+        "target. It is not a per-file checksum manifest."
+    ),
+}
+temporary = marker.with_name(f".{marker.name}.{os.getpid()}.tmp")
+temporary.write_text(
+    json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+    encoding="utf-8",
+)
+os.replace(temporary, marker)
+PY
+}
+
+validate_droid_backend_marker() {
+  "$PYTHON" - \
+    "$MARKER_ROOT/DROID_BACKEND_READY" \
+    "$MARKER_ROOT/droid_policy_learning_commit.txt" \
+    "$JOB_ROOT/code/droid_policy_learning" \
+    "$ROOT/external_data/embodied_full/training_backends/droid_policy_learning" <<'PY'
+import hashlib
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+marker = Path(sys.argv[1])
+commit_marker = Path(sys.argv[2])
+backend = Path(sys.argv[3])
+source = Path(sys.argv[4])
+try:
+    payload = json.loads(marker.read_text(encoding="utf-8"))
+    expected_commit = commit_marker.read_text(encoding="utf-8").strip()
+except (OSError, json.JSONDecodeError):
+    raise SystemExit(1)
+if (
+    payload.get("format_version") != "qtail_droid_backend_marker_v2"
+    or payload.get("status") != "verified"
+    or payload.get("source_root") != str(source)
+    or payload.get("backend_root") != str(backend)
+    or payload.get("git_commit") != expected_commit
+    or payload.get("commit_marker") != str(commit_marker)
+    or payload.get("commit_marker_sha256")
+    != hashlib.sha256(commit_marker.read_bytes()).hexdigest()
+    or payload.get("git_fsck_passed") is not True
+    or not backend.is_dir()
+):
+    raise SystemExit(1)
+head = subprocess.run(
+    ["git", "-C", str(backend), "rev-parse", "HEAD"],
+    capture_output=True,
+    text=True,
+).stdout.strip()
+if head != expected_commit:
+    raise SystemExit(1)
+if subprocess.run(
+    ["git", "-C", str(backend), "fsck", "--no-progress"],
+    stdout=subprocess.DEVNULL,
+    stderr=subprocess.DEVNULL,
+).returncode:
+    raise SystemExit(1)
+PY
+}
+
+write_droid_backend_marker() {
+  "$PYTHON" - \
+    "$MARKER_ROOT/DROID_BACKEND_READY" \
+    "$MARKER_ROOT/droid_policy_learning_commit.txt" \
+    "$JOB_ROOT/code/droid_policy_learning" \
+    "$ROOT/external_data/embodied_full/training_backends/droid_policy_learning" <<'PY'
+import hashlib
+import json
+import os
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+marker = Path(sys.argv[1])
+commit_marker = Path(sys.argv[2])
+backend = Path(sys.argv[3])
+source = Path(sys.argv[4])
+commit = commit_marker.read_text(encoding="utf-8").strip()
+payload = {
+    "format_version": "qtail_droid_backend_marker_v2",
+    "generated_at": datetime.now(timezone.utc).isoformat(),
+    "status": "verified",
+    "source_root": str(source),
+    "backend_root": str(backend),
+    "git_commit": commit,
+    "commit_marker": str(commit_marker),
+    "commit_marker_sha256": hashlib.sha256(commit_marker.read_bytes()).hexdigest(),
+    "git_fsck_passed": True,
+    "claim_boundary": (
+        "This binds the ORICO backend checkout to the recorded Git commit "
+        "after git fsck. It does not claim that untracked runtime files are "
+        "part of that commit."
+    ),
+}
+temporary = marker.with_name(f".{marker.name}.{os.getpid()}.tmp")
+temporary.write_text(
+    json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+    encoding="utf-8",
+)
+os.replace(temporary, marker)
+PY
 }
 
 require_fresh_direct_gate() {
@@ -248,27 +674,27 @@ optional_sources = {
         "last watchdog process snapshot",
     ),
     "qtail_droid_terminal_launcher.log": (
-        repo_root / ".tmp" / "qtail-droid-terminal-launcher.log",
+        log_root / "qtail_droid_terminal_launcher.log",
         "scheduled terminal launcher supervision",
     ),
     "qtail_droid_launchd_stderr.log": (
-        repo_root / ".tmp" / "qtail-droid-launchd.err.log",
+        log_root / "qtail_droid_launchd_stderr.log",
         "scheduled launcher stderr history",
     ),
     "qtail_droid_launchd_stdout.log": (
-        repo_root / ".tmp" / "qtail-droid-launchd.out.log",
+        log_root / "qtail_droid_launchd_stdout.log",
         "scheduled launcher stdout history",
     ),
     "qtail_uniclash_guard_stderr.log": (
-        repo_root / ".tmp" / "qtail-uniclash-guard.err.log",
+        log_root / "qtail_uniclash_guard_stderr.log",
         "UniClash transport guard stderr history",
     ),
     "qtail_uniclash_guard_stdout.log": (
-        repo_root / ".tmp" / "qtail-uniclash-guard.out.log",
+        log_root / "qtail_uniclash_guard_stdout.log",
         "UniClash transport guard stdout history",
     ),
     "qtail_web_services_local.log": (
-        repo_root / ".tmp" / "qtail-web-services.log",
+        log_root / "qtail_web_services_local.log",
         "local web-service supervision history",
     ),
 }
@@ -496,7 +922,18 @@ terminate_pipeline() {
 trap cleanup_lock EXIT
 trap terminate_pipeline INT TERM HUP
 
-touch "$MARKER_ROOT/PIPELINE_STARTED"
+if ! write_pipeline_started_marker; then
+  log "semantic pipeline-start marker could not be committed"
+  exit 18
+fi
+if ! "$PYTHON" "$ORCHESTRATION_SNAPSHOT_PUBLISHER" \
+  --repo-root "$ROOT" \
+  --job-root "$JOB_ROOT" \
+  --include "$ROOT/tools/qtail_prewarm_status_contract_selftest.py" \
+  >> "$LOG" 2>&1; then
+  log "atomic ORICO orchestration snapshot publication failed"
+  exit 18
+fi
 refresh_status
 
 if [ -f "$MARKER_ROOT/DROID_TRAINING_COMPLETE" ]; then
@@ -549,6 +986,12 @@ then
     refresh_status
     sleep 300
   done
+fi
+
+if [ -f "$MARKER_ROOT/OPENX_MIGRATION_COMPLETE" ] \
+  && ! validate_openx_migration_marker; then
+  log "stored Open X migration marker is legacy, stale, or unbound; rebuilding it from live ORICO state"
+  rm -f "$MARKER_ROOT/OPENX_MIGRATION_COMPLETE"
 fi
 
 if [ ! -f "$MARKER_ROOT/OPENX_MIGRATION_COMPLETE" ]; then
@@ -607,11 +1050,20 @@ if [ ! -f "$MARKER_ROOT/OPENX_MIGRATION_COMPLETE" ]; then
   if [ -d "$OPENX_BACKUP" ]; then
     rm -rf "$OPENX_BACKUP"
   fi
-  touch "$MARKER_ROOT/OPENX_MIGRATION_COMPLETE"
+  if ! write_openx_migration_marker; then
+    log "Open X semantic migration marker could not be committed"
+    exit 18
+  fi
   log "Open X move verified; workspace path now points to ORICO"
   log "Open X and DROID remain separate datasets; DROID rsync will skip only matching DROID objects"
 fi
 refresh_status
+
+if [ -f "$MARKER_ROOT/DROID_BACKEND_READY" ] \
+  && ! validate_droid_backend_marker; then
+  log "stored DROID backend marker is legacy, stale, or unbound; rebuilding the audited ORICO checkout"
+  rm -f "$MARKER_ROOT/DROID_BACKEND_READY"
+fi
 
 if [ ! -f "$MARKER_ROOT/DROID_BACKEND_READY" ]; then
   log "copying DROID policy-learning repository to ORICO"
@@ -638,7 +1090,10 @@ if [ ! -f "$MARKER_ROOT/DROID_BACKEND_READY" ]; then
   printf '%s\n' "$backend_commit" > "$MARKER_ROOT/droid_policy_learning_commit.txt.tmp"
   mv "$MARKER_ROOT/droid_policy_learning_commit.txt.tmp" \
     "$MARKER_ROOT/droid_policy_learning_commit.txt"
-  touch "$MARKER_ROOT/DROID_BACKEND_READY"
+  if ! write_droid_backend_marker; then
+    log "DROID backend semantic readiness marker could not be committed"
+    exit 21
+  fi
   log "DROID backend copied and git fsck passed"
 fi
 refresh_status
@@ -648,19 +1103,43 @@ if [ ! -x "$GSUTIL" ]; then
   exit 13
 fi
 
+if [ -f "$MARKER_ROOT/DROID_SOURCE_PROBED" ] \
+  && ! validate_droid_source_probe_marker; then
+  log "stored DROID source marker is legacy, stale, or unbound; rebuilding it without a network probe when the report remains valid"
+  rm -f "$MARKER_ROOT/DROID_SOURCE_PROBED"
+fi
+
+if [ ! -f "$MARKER_ROOT/DROID_SOURCE_PROBED" ] \
+  && [ -f "$SOURCE_PROBE_REPORT" ]; then
+  if ! "$PYTHON" "$ROOT/tools/qtail_probe_droid_source.py" \
+    --gsutil "$GSUTIL" \
+    --source "$REMOTE_URI" \
+    --job-root "$JOB_ROOT" \
+    --out "$SOURCE_PROBE_REPORT" \
+    --expected-bytes "$REMOTE_BYTES" \
+    --marker-dir "$MARKER_ROOT" \
+    --seal-existing >> "$LOG" 2>&1; then
+    log "stored DROID source report could not be sealed; a fresh direct-route probe is required"
+  fi
+fi
+
 if [ ! -f "$MARKER_ROOT/DROID_SOURCE_PROBED" ]; then
   log "probing official DROID source size and ORICO capacity"
   if ! "$PYTHON" "$ROOT/tools/qtail_probe_droid_source.py" \
     --gsutil "$GSUTIL" \
     --source "$REMOTE_URI" \
     --job-root "$JOB_ROOT" \
-    --out "$RESULT_ROOT/droid_source_probe.json" \
+    --out "$SOURCE_PROBE_REPORT" \
     --expected-bytes "$REMOTE_BYTES" \
     --marker-dir "$MARKER_ROOT" >> "$LOG" 2>&1; then
     log "official DROID source probe failed; source marker withheld"
     exit 22
   fi
   log "official DROID source probe passed"
+fi
+if ! validate_droid_source_probe_marker; then
+  log "semantic DROID source marker validation failed"
+  exit 22
 fi
 refresh_status
 
@@ -837,6 +1316,13 @@ if [ ! -f "$DOWNLOAD_MARKER" ]; then
   done
 fi
 
+if [ ! -f "$MARKER_ROOT/DROID_TRAINING_COMPLETE" ]; then
+  if ! require_pipeline_generation_marker "pre-checksum"; then
+    log "pipeline PID/lock/script generation gate blocked checksum"
+    exit 88
+  fi
+fi
+
 log "auditing official DROID 1.0.0/1.0.1 release metadata and shared schema"
 if ! "$PYTHON" "$ROOT/tools/qtail_audit_droid_release_metadata.py" \
   --data-dir "$DATA_ROOT" \
@@ -850,26 +1336,93 @@ refresh_status
 
 if [ -f "$MARKER_ROOT/DROID_CHECKSUM_VERIFIED" ]; then
   wait_for_volume
-  if ! "$PYTHON" "$MIRROR_VERIFIER" \
+  if ! "$PYTHON" - "$JOB_ROOT" "$ROOT/tools" <<'PY' >> "$LOG" 2>&1
+import json
+import sys
+from pathlib import Path
+
+job_root = Path(sys.argv[1])
+sys.path.insert(0, sys.argv[2])
+from qtail_verify_droid_stage_markers import validate_checksum_marker
+
+errors = validate_checksum_marker(job_root)
+verification = json.loads(
+    (
+        job_root
+        / "results"
+        / "qtail_droid_full"
+        / "download_verification.json"
+    ).read_text(encoding="utf-8")
+)
+byte_checksum_verified = bool(
+    verification.get("local_md5_rehash_complete") is True
+    or int(verification.get("checksum_rsync_returncode", -1)) == 0
+)
+if (
+    verification.get("status") != "complete"
+    or verification.get("ready_for_full_allocation_training") is not True
+    or not byte_checksum_verified
+    or int(verification.get("checksum_error_count", -1)) != 0
+):
+    errors.append("bound prior byte-checksum verification is incomplete")
+if errors:
+    raise SystemExit("; ".join(errors))
+PY
+  then
+    log "stored checksum marker or its prior full-MD5 evidence is invalid; invalidating it"
+    rm -f "$MARKER_ROOT/DROID_CHECKSUM_VERIFIED"
+  elif ! "$PYTHON" "$MIRROR_VERIFIER" \
     --data-dir "$DATA_ROOT" \
     --manifest "$OBJECT_MANIFEST" \
     --checksum-manifest "$CHECKSUM_MANIFEST" \
     --checksum-ledger "$CHECKSUM_LEDGER" \
     --expected-bytes "$REMOTE_BYTES" \
     --checksum-returncode 0 \
-    --rehash-local \
-    --out "$RESULT_ROOT/download_verification.json" >> "$LOG" 2>&1; then
-    log "stored checksum marker no longer binds to the local mirror; invalidating it"
+    --out "$CHECKSUM_STAT_CONTINUITY_REPORT" >> "$LOG" 2>&1; then
+    log "stored byte-checksum evidence no longer has 4,102-file stat continuity; invalidating it"
+    rm -f "$MARKER_ROOT/DROID_CHECKSUM_VERIFIED"
+  elif ! "$PYTHON" - \
+    "$CHECKSUM_STAT_CONTINUITY_REPORT" \
+    "$MARKER_ROOT/DROID_CHECKSUM_VERIFIED" \
+    "$RESULT_ROOT/download_verification.json" <<'PY' >> "$LOG" 2>&1
+import hashlib
+import json
+import os
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+continuity_path = Path(sys.argv[1])
+marker_path = Path(sys.argv[2])
+verification_path = Path(sys.argv[3])
+payload = json.loads(continuity_path.read_text(encoding="utf-8"))
+payload["continuity_contract"] = {
+    "version": "bound_byte_checksum_plus_4102_stat_identity_v1",
+    "verified_at": datetime.now(timezone.utc).isoformat(),
+    "prior_checksum_marker": str(marker_path),
+    "prior_checksum_marker_sha256": hashlib.sha256(
+        marker_path.read_bytes()
+    ).hexdigest(),
+    "prior_download_verification": str(verification_path),
+    "prior_download_verification_sha256": hashlib.sha256(
+        verification_path.read_bytes()
+    ).hexdigest(),
+    "current_stat_identity_passed": payload.get("status") == "complete",
+}
+temporary = continuity_path.with_name(
+    f".{continuity_path.name}.tmp.{os.getpid()}"
+)
+temporary.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+os.replace(temporary, continuity_path)
+PY
+  then
+    log "checksum stat-continuity evidence could not be bound; invalidating marker"
     rm -f "$MARKER_ROOT/DROID_CHECKSUM_VERIFIED"
   else
-    if ! commit_checksum_marker; then
-      log "atomic checksum marker refresh failed on fast path"
-      exit 87
-    fi
     require_fresh_direct_gate \
       "existing checksum-marker fast path" \
       "$UNICLASH_CHECKSUM_HANDOFF_GATE_REPORT"
-    log "QTAIL_TERMINAL checksum_complete path=verified_marker_fast_path"
+    log "QTAIL_TERMINAL checksum_complete path=bound_byte_checksum_plus_stat_continuity"
   fi
 fi
 
@@ -981,6 +1534,16 @@ if [ "$selftest_code" -ne 0 ]; then
   exit "$selftest_code"
 fi
 
+log "running DROID prewarm status-scope positive/negative controls"
+"$PYTHON" "$ROOT/tools/qtail_prewarm_status_contract_selftest.py" \
+  --out "$RESULT_ROOT/droid_prewarm_status_contract_selftest.json" \
+  >> "$LOG" 2>&1
+prewarm_status_selftest_code=$?
+if [ "$prewarm_status_selftest_code" -ne 0 ]; then
+  log "DROID prewarm status-scope self-test exited $prewarm_status_selftest_code; training withheld"
+  exit "$prewarm_status_selftest_code"
+fi
+
 log "running formal DROID pre-optimizer gate-order controls"
 "$PYTHON" "$TRAINING_GATE_ORDER_SELFTEST" \
   --trainer "$ROOT/tools/qtail_train_droid_full.py" \
@@ -991,43 +1554,52 @@ if [ "$training_gate_order_code" -ne 0 ]; then
   exit "$training_gate_order_code"
 fi
 
-log "running DROID environment contract positive/negative controls"
-"$PYTHON" "$ROOT/tools/qtail_droid_environment_contract_selftest.py" \
-  --repo-root "$ROOT" \
-  --job-root "$JOB_ROOT" \
-  --out "$RESULT_ROOT/droid_environment_contract_selftest.json" \
-  --pt-source "$ROOT/data/uploaded_data.csv" \
-  --object-manifest "$RESULT_ROOT/droid_object_manifest.json" \
-  --checksum-manifest "$RESULT_ROOT/droid_object_checksum_manifest.json" \
-  --transport-status "$RESULT_ROOT/parallel_download_status.json" \
-  --uniclash-guard-status "$RESULT_ROOT/uniclash_transport_guard.json" \
-  --backend-root "$JOB_ROOT/code/droid_policy_learning" >> "$LOG" 2>&1
-environment_selftest_code=$?
-if [ "$environment_selftest_code" -ne 0 ]; then
-  log "DROID environment contract self-test exited $environment_selftest_code; training withheld"
-  exit "$environment_selftest_code"
-fi
+if [ ! -f "$MARKER_ROOT/DROID_TRAINING_COMPLETE" ]; then
+  log "running DROID environment contract positive/negative controls"
+  "$PYTHON" "$ROOT/tools/qtail_droid_environment_contract_selftest.py" \
+    --repo-root "$ROOT" \
+    --job-root "$JOB_ROOT" \
+    --out "$RESULT_ROOT/droid_environment_contract_selftest.json" \
+    --pt-source "$ROOT/data/uploaded_data.csv" \
+    --object-manifest "$RESULT_ROOT/droid_object_manifest.json" \
+    --checksum-manifest "$RESULT_ROOT/droid_object_checksum_manifest.json" \
+    --transport-status "$RESULT_ROOT/parallel_download_status.json" \
+    --uniclash-guard-status "$RESULT_ROOT/uniclash_transport_guard.json" \
+    --orchestration-snapshot-manifest "$ORCHESTRATION_SNAPSHOT_MANIFEST" \
+    --backend-root "$JOB_ROOT/code/droid_policy_learning" \
+    >> "$LOG" 2>&1
+  environment_selftest_code=$?
+  if [ "$environment_selftest_code" -ne 0 ]; then
+    log "DROID environment contract self-test exited $environment_selftest_code; training withheld"
+    exit "$environment_selftest_code"
+  fi
 
-require_fresh_direct_gate \
-  "environment capture" \
-  "$UNICLASH_PRE_ENVIRONMENT_GATE_REPORT"
-log "capturing secret-free DROID training environment manifest"
-"$PYTHON" "$ROOT/tools/qtail_capture_droid_environment.py" \
-  --repo-root "$ROOT" \
-  --job-root "$JOB_ROOT" \
-  --out "$RESULT_ROOT/droid_environment_manifest.json" \
-  --pt-source "$ROOT/data/uploaded_data.csv" \
-  --object-manifest "$RESULT_ROOT/droid_object_manifest.json" \
-  --checksum-manifest "$RESULT_ROOT/droid_object_checksum_manifest.json" \
-  --download-verification "$RESULT_ROOT/download_verification.json" \
-  --transport-status "$RESULT_ROOT/parallel_download_status.json" \
-  --uniclash-guard-status "$RESULT_ROOT/uniclash_transport_guard.json" \
-  --backend-root "$JOB_ROOT/code/droid_policy_learning" \
-  --require-final-inputs >> "$LOG" 2>&1
-environment_code=$?
-if [ "$environment_code" -ne 0 ]; then
-  log "DROID environment manifest exited $environment_code; training withheld"
-  exit "$environment_code"
+  if ! require_pipeline_generation_marker "pre-environment"; then
+    log "pipeline PID/lock/script generation gate blocked environment capture"
+    exit 88
+  fi
+  require_fresh_direct_gate \
+    "environment capture" \
+    "$UNICLASH_PRE_ENVIRONMENT_GATE_REPORT"
+  log "capturing secret-free DROID training environment manifest"
+  "$PYTHON" "$ROOT/tools/qtail_capture_droid_environment.py" \
+    --repo-root "$ROOT" \
+    --job-root "$JOB_ROOT" \
+    --out "$RESULT_ROOT/droid_environment_manifest.json" \
+    --pt-source "$ROOT/data/uploaded_data.csv" \
+    --object-manifest "$RESULT_ROOT/droid_object_manifest.json" \
+    --checksum-manifest "$RESULT_ROOT/droid_object_checksum_manifest.json" \
+    --download-verification "$RESULT_ROOT/download_verification.json" \
+    --transport-status "$RESULT_ROOT/parallel_download_status.json" \
+    --uniclash-guard-status "$RESULT_ROOT/uniclash_transport_guard.json" \
+    --backend-root "$JOB_ROOT/code/droid_policy_learning" \
+    --orchestration-snapshot-manifest "$ORCHESTRATION_SNAPSHOT_MANIFEST" \
+    --require-final-inputs >> "$LOG" 2>&1
+  environment_code=$?
+  if [ "$environment_code" -ne 0 ]; then
+    log "DROID environment manifest exited $environment_code; training withheld"
+    exit "$environment_code"
+  fi
 fi
 
 PREWARM_LOOP="$ROOT/scripts/qtail_droid_feature_prewarm_loop.sh"
@@ -1041,6 +1613,10 @@ while pgrep -f "$ROOT/tools/qtail_train_droid_full.py" >/dev/null 2>&1; do
 done
 
 if [ ! -f "$MARKER_ROOT/DROID_TRAINING_COMPLETE" ]; then
+  if ! require_pipeline_generation_marker "pre-formal-training"; then
+    log "pipeline PID/lock/script generation gate blocked formal training"
+    exit 88
+  fi
   require_fresh_direct_gate \
     "formal training launch" \
     "$UNICLASH_PRE_TRAINING_GATE_REPORT"
@@ -1052,9 +1628,11 @@ if [ ! -f "$MARKER_ROOT/DROID_TRAINING_COMPLETE" ]; then
     --object-manifest "$RESULT_ROOT/droid_object_manifest.json" \
     --checksum-manifest "$RESULT_ROOT/droid_object_checksum_manifest.json" \
     --checksum-ledger "$RESULT_ROOT/droid_object_checksum_ledger.json" \
+    --checksum-stat-continuity "$CHECKSUM_STAT_CONTINUITY_REPORT" \
     --transport-status "$RESULT_ROOT/parallel_download_status.json" \
     --download-marker "$MARKER_ROOT/DROID_DOWNLOAD_COMPLETE" \
     --download-verification "$RESULT_ROOT/download_verification.json" \
+    --environment-manifest "$RESULT_ROOT/droid_environment_manifest.json" \
     --require-verified-mirror \
     --process-lock "$RESULT_ROOT/.qtail_train_droid_full.lock" \
     --required-mount /Volumes/ORICO \
@@ -1074,15 +1652,49 @@ if [ ! -f "$MARKER_ROOT/DROID_TRAINING_COMPLETE" ]; then
     log "DROID full allocation training exited $training_code; completion marker withheld"
     exit "$training_code"
   fi
-  "$PYTHON" "$ROOT/tools/qtail_verify_droid_feature_cache.py" \
-    --data-dir "$DATA_ROOT" \
-    --object-manifest "$RESULT_ROOT/droid_object_manifest.json" \
-    --cache-manifest "$RESULT_ROOT/droid_feature_cache_manifest.json" \
-    --out "$RESULT_ROOT/droid_feature_cache_verification.json" \
-    --artifact-manifest "$RESULT_ROOT/droid_artifact_manifest.json" \
-    --require-all-official-tfrecords \
-    --recompute-feature-values >> "$LOG" 2>&1
+  "$PYTHON" - \
+    "$RESULT_ROOT/droid_feature_cache_manifest.json" \
+    "$RESULT_ROOT/droid_feature_cache_verification.json" <<'PY'
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+manifest = Path(sys.argv[1])
+verification = Path(sys.argv[2])
+if not manifest.is_file() or not verification.is_file():
+    raise SystemExit(1)
+audit = json.loads(verification.read_text(encoding="utf-8"))
+manifest_sha256 = hashlib.sha256(manifest.read_bytes()).hexdigest()
+if not (
+    audit.get("status") == "verified"
+    and audit.get("cache_manifest_sha256") == manifest_sha256
+    and audit.get("all_official_tfrecords") is True
+    and audit.get("full_official_record_count_match") is True
+    and audit.get("all_feature_values_recomputed") is True
+    and int(audit.get("official_tfrecord_count", -1)) == 4_096
+    and int(audit.get("verified_cache_count", -1)) == 4_096
+    and int(audit.get("recomputed_feature_count", -1)) == 4_096
+    and int(audit.get("official_expected_records", -1)) == 187_891
+    and int(audit.get("verified_decoded_records", -1)) == 187_891
+    and int(audit.get("error_count", -1)) == 0
+):
+    raise SystemExit(1)
+PY
   cache_verification_code=$?
+  if [ "$cache_verification_code" -eq 0 ]; then
+    log "reusing full feature-value recomputation bound to the unchanged cache manifest"
+  else
+    "$PYTHON" "$ROOT/tools/qtail_verify_droid_feature_cache.py" \
+      --data-dir "$DATA_ROOT" \
+      --object-manifest "$RESULT_ROOT/droid_object_manifest.json" \
+      --cache-manifest "$RESULT_ROOT/droid_feature_cache_manifest.json" \
+      --out "$RESULT_ROOT/droid_feature_cache_verification.json" \
+      --artifact-manifest "$RESULT_ROOT/droid_artifact_manifest.json" \
+      --require-all-official-tfrecords \
+      --recompute-feature-values >> "$LOG" 2>&1
+    cache_verification_code=$?
+  fi
   if [ "$cache_verification_code" -ne 0 ]; then
     log "DROID full feature-cache verification exited $cache_verification_code"
     exit "$cache_verification_code"
@@ -1264,7 +1876,7 @@ if (
         and item.get("device") == audit.get("training_device")
         and item.get("optimizer") == OPTIMIZER_SIGNATURE
         and item.get("environment_fingerprint")
-        == audit.get("runtime_environment_fingerprint")
+        == audit.get("checkpoint_environment_fingerprint")
         and (
             not item.get("resumed")
             or (
@@ -1273,7 +1885,7 @@ if (
                 and item.get("checkpoint_optimizer")
                 == OPTIMIZER_SIGNATURE
                 and item.get("checkpoint_environment_fingerprint")
-                == audit.get("runtime_environment_fingerprint")
+                == audit.get("checkpoint_environment_fingerprint")
             )
         )
         and item.get("step_semantics")
@@ -1288,6 +1900,7 @@ if (
     or not audit.get("same_device")
     or audit.get("same_environment_fingerprint") is not True
     or len(str(audit.get("runtime_environment_fingerprint", ""))) != 64
+    or len(str(audit.get("checkpoint_environment_fingerprint", ""))) != 64
     or not audit.get("same_parameter_count")
     or int(audit.get("source_parameter_count", -1)) <= 0
     or int(audit.get("source_parameter_count", -1))

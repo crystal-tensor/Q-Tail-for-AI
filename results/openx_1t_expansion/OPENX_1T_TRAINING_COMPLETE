@@ -1,0 +1,49 @@
+{
+  "format_version": "qtail_openx_1t_stage_marker_v1",
+  "stage": "training",
+  "completed_at": "2026-08-12T04:15:20.797779+00:00",
+  "evidence": {
+    "steps": 20000,
+    "optimizer_updates": 40000,
+    "shard_count": 3673,
+    "checkpoint_sha256": "e2f8b5aedd67c9b3eb5d8ee2d62a595897e60a01235a33ac6d3579eb8624fdb6",
+    "parent_download_marker": {
+      "bytes": 862,
+      "sha256": "94a2bb5e36e2238c510c8f2986a4a64b36d09d8618500b9e9578718aaf3328bd"
+    },
+    "artifacts": {
+      "runtime": {
+        "bytes": 805,
+        "sha256": "0abdee2ecf0ca3c3e9f1465dea4c3630aeef1464b57031ec716269a50937e61a"
+      },
+      "report": {
+        "bytes": 5698,
+        "sha256": "61f408700a654f62fdba2d9a5b278207c9956234435f6053f2ad4563a7b1ee98"
+      },
+      "checkpoint": {
+        "bytes": 14011,
+        "sha256": "e2f8b5aedd67c9b3eb5d8ee2d62a595897e60a01235a33ac6d3579eb8624fdb6"
+      },
+      "training_rows": {
+        "bytes": 2178008,
+        "sha256": "b6a6f3041fdfd56dfacb3dc8f2e98f5e7745244e39881c340c7fd246aa5b6916"
+      },
+      "cache_usage": {
+        "bytes": 607,
+        "sha256": "a1998d6294323b7c9652e0052ba980c84b442a209b4b39d615eb0e4777274a8c"
+      },
+      "optimizer_progress": {
+        "bytes": 692,
+        "sha256": "ac3cca843c945a89ae044fd01beffecec4d74c80e5b0cfd974d10416695264ba"
+      },
+      "source_resume_checkpoint": {
+        "bytes": 20009,
+        "sha256": "62ab59215e3f51a76a61e7bf0c0314411b6f3a5241a03669eace90ad3d69b06c"
+      },
+      "qtail_resume_checkpoint": {
+        "bytes": 19979,
+        "sha256": "2a7845993c2ee111b0af73b06ad9fa6facc58bab2ff670793ae7bf059b1f3414"
+      }
+    }
+  }
+}

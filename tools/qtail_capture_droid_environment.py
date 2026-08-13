@@ -18,6 +18,14 @@ from typing import Any
 import numpy as np
 import torch
 
+from qtail_assert_uniclash_transport_gate import validate_guard
+
+
+EXPECTED_BACKEND_COMMIT = "9a29c832b4c81bf38401111f5e4cdddaca217581"
+EXPECTED_BACKEND_ORIGIN = (
+    "https://github.com/droid-dataset/droid_policy_learning"
+)
+
 
 def now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -62,6 +70,38 @@ def read_json(path: Path | None) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
 
+def read_snapshot_manifest(path: Path | None) -> tuple[dict[str, str], list[str]]:
+    if path is None or not path.is_file():
+        return {}, ["snapshot_manifest_missing"]
+    entries: dict[str, str] = {}
+    errors: list[str] = []
+    for line_number, line in enumerate(
+        path.read_text(encoding="utf-8").splitlines(),
+        start=1,
+    ):
+        try:
+            digest, relative = line.split("  ./", 1)
+        except ValueError:
+            errors.append(f"line_{line_number}:invalid_format")
+            continue
+        if (
+            len(digest) != 64
+            or any(character not in "0123456789abcdef" for character in digest)
+            or not relative
+            or relative.startswith("/")
+            or ".." in Path(relative).parts
+        ):
+            errors.append(f"line_{line_number}:invalid_entry")
+            continue
+        if relative in entries:
+            errors.append(f"line_{line_number}:duplicate_path:{relative}")
+            continue
+        entries[relative] = digest
+    if not entries:
+        errors.append("snapshot_manifest_empty")
+    return entries, errors
+
+
 def command_output(command: list[str]) -> dict[str, Any]:
     result = subprocess.run(
         command,
@@ -75,6 +115,15 @@ def command_output(command: list[str]) -> dict[str, Any]:
         "stdout": result.stdout.strip(),
         "stderr": result.stderr.strip(),
     }
+
+
+def normalize_git_origin(value: str) -> str:
+    normalized = value.strip().removesuffix("/").removesuffix(".git")
+    if normalized.startswith("git@github.com:"):
+        normalized = (
+            "https://github.com/" + normalized.removeprefix("git@github.com:")
+        )
+    return normalized
 
 
 def package_inventory() -> list[dict[str, str]]:
@@ -101,6 +150,7 @@ def main() -> None:
     parser.add_argument("--transport-status", type=Path)
     parser.add_argument("--uniclash-guard-status", type=Path)
     parser.add_argument("--backend-root", type=Path, required=True)
+    parser.add_argument("--orchestration-snapshot-manifest", type=Path)
     parser.add_argument("--require-final-inputs", action="store_true")
     args = parser.parse_args()
 
@@ -109,6 +159,9 @@ def main() -> None:
         args.repo_root
         / "tools"
         / "qtail_droid_environment_contract_selftest.py",
+        args.repo_root
+        / "tools"
+        / "qtail_prewarm_status_contract_selftest.py",
         args.repo_root / "tools" / "qtail_parallel_gcs_download.py",
         args.repo_root
         / "tools"
@@ -181,9 +234,11 @@ def main() -> None:
         args.repo_root
         / "tools"
         / "qtail_seal_droid_release_milestones.py",
-        args.repo_root / "tools" / "qtail_verify_droid_mirror.py",
         args.repo_root / "tools" / "qtail_verify_droid_page.mjs",
         args.repo_root / "tools" / "qtail_verify_droid_stage_markers.py",
+        args.repo_root
+        / "tools"
+        / "qtail_publish_orchestration_snapshot.py",
         args.repo_root / "tools" / "qtail_summarize_droid_forecast.py",
         args.repo_root / "scripts" / "qtail_droid_feature_prewarm_loop.sh",
         args.repo_root / "scripts" / "qtail_droid_pipeline_watchdog.sh",
@@ -215,6 +270,8 @@ def main() -> None:
         input_paths.append(args.transport_status)
     if args.uniclash_guard_status:
         input_paths.append(args.uniclash_guard_status)
+    if args.orchestration_snapshot_manifest:
+        input_paths.append(args.orchestration_snapshot_manifest)
     code = [file_entry(path) for path in code_paths]
     inputs = [file_entry(path) for path in input_paths]
     missing_code = [item["path"] for item in code if not item["exists"]]
@@ -223,6 +280,50 @@ def main() -> None:
         missing_inputs.append("download_verification_argument")
     if args.require_final_inputs and not args.uniclash_guard_status:
         missing_inputs.append("uniclash_guard_status_argument")
+    if args.require_final_inputs and not args.orchestration_snapshot_manifest:
+        missing_inputs.append("orchestration_snapshot_manifest_argument")
+
+    snapshot_entries, snapshot_manifest_errors = read_snapshot_manifest(
+        args.orchestration_snapshot_manifest
+    )
+    repo_root_resolved = args.repo_root.resolve()
+    snapshot_code_mismatches: list[dict[str, Any]] = []
+    for item in code:
+        try:
+            relative = str(
+                Path(str(item["path"])).resolve().relative_to(
+                    repo_root_resolved
+                )
+            )
+        except ValueError:
+            snapshot_code_mismatches.append(
+                {
+                    "path": item["path"],
+                    "reason": "outside_repo_root",
+                }
+            )
+            continue
+        snapshot_sha256 = snapshot_entries.get(relative)
+        if snapshot_sha256 != item.get("sha256"):
+            snapshot_code_mismatches.append(
+                {
+                    "path": item["path"],
+                    "relative_path": relative,
+                    "workspace_sha256": item.get("sha256"),
+                    "snapshot_sha256": snapshot_sha256,
+                    "reason": (
+                        "missing_from_snapshot"
+                        if snapshot_sha256 is None
+                        else "sha256_mismatch"
+                    ),
+                }
+            )
+    snapshot_code_parity_passed = bool(
+        args.orchestration_snapshot_manifest
+        and not snapshot_manifest_errors
+        and code
+        and not snapshot_code_mismatches
+    )
 
     backend_commit = command_output(
         ["git", "-C", str(args.backend_root), "rev-parse", "HEAD"]
@@ -230,6 +331,22 @@ def main() -> None:
     backend_fsck = command_output(
         ["git", "-C", str(args.backend_root), "fsck", "--no-progress"]
     )
+    backend_origin = command_output(
+        ["git", "-C", str(args.backend_root), "remote", "get-url", "origin"]
+    )
+    backend_status = command_output(
+        [
+            "git",
+            "-C",
+            str(args.backend_root),
+            "status",
+            "--porcelain",
+            "--untracked-files=all",
+        ]
+    )
+    backend_status_entries = [
+        line for line in backend_status["stdout"].splitlines() if line.strip()
+    ]
     mount = command_output(["/sbin/mount"])
     mount_line = next(
         (
@@ -359,38 +476,43 @@ def main() -> None:
     uniclash = uniclash_guard_payload.get("uniclash", {})
     bypass = uniclash_guard_payload.get("system_proxy_bypass", {})
     cumulative = uniclash_guard_payload.get("cumulative", {})
-    guarded_transports = set(
+    expected_interface = str(
         uniclash_guard_payload.get("policy", {}).get(
-            "guarded_transports", []
+            "expected_interface", "en1"
         )
+    )
+    uniclash_gate = validate_guard(
+        uniclash_guard_payload,
+        expected_interface=expected_interface,
+        max_age_seconds=180.0,
     )
     uniclash_isolation_guard_passed = bool(
         args.uniclash_guard_status
-        and uniclash_guard_payload.get("status") in {"passed", "passed_idle"}
-        and uniclash.get("core_running") is True
-        and uniclash.get("tun_enabled") is False
-        and bypass.get("passed") is True
-        and {"curl", "gsutil"}.issubset(guarded_transports)
-        and uniclash_guard_payload.get("policy", {}).get(
-            "process_classifier_version"
-        )
-        == "droid_transport_downloader_descendants_v6_interface_bound_live"
-        and not uniclash_guard_payload.get("blocked_processes")
-        and not uniclash_guard_payload.get("global_violations")
-        and int(cumulative.get("samples", 0)) > 0
-        and int(cumulative.get("blocked_samples", -1)) == 0
-        and int(cumulative.get("forbidden_socket_observations", -1)) == 0
-        and int(cumulative.get("wrong_route_observations", -1)) == 0
-        and not cumulative.get("blocked_pids")
-        and not cumulative.get("violation_events")
+        and uniclash_gate.get("status") == "passed"
     )
 
     gates = {
         "critical_code_present": not missing_code,
+        "orchestration_snapshot_code_parity_passed": (
+            snapshot_code_parity_passed
+        ),
         "immutable_inputs_present": not missing_inputs,
         "backend_commit_resolved": (
             backend_commit["returncode"] == 0
             and len(backend_commit["stdout"]) == 40
+        ),
+        "backend_commit_pinned": (
+            backend_commit["returncode"] == 0
+            and backend_commit["stdout"] == EXPECTED_BACKEND_COMMIT
+        ),
+        "backend_origin_official": (
+            backend_origin["returncode"] == 0
+            and normalize_git_origin(backend_origin["stdout"])
+            == EXPECTED_BACKEND_ORIGIN
+        ),
+        "backend_worktree_clean": (
+            backend_status["returncode"] == 0
+            and not backend_status_entries
         ),
         "backend_git_fsck_passed": backend_fsck["returncode"] == 0,
         "download_verification_present": bool(
@@ -485,6 +607,7 @@ def main() -> None:
             "uniclash": uniclash,
             "system_proxy_bypass": bypass,
             "cumulative": cumulative,
+            "transition_gate": uniclash_gate,
             "gate_passed": uniclash_isolation_guard_passed,
         },
         "download_verification_audit": {
@@ -512,9 +635,37 @@ def main() -> None:
         "backend": {
             "path": str(args.backend_root),
             "commit": backend_commit["stdout"] or None,
+            "expected_commit": EXPECTED_BACKEND_COMMIT,
+            "origin": backend_origin["stdout"] or None,
+            "expected_origin": EXPECTED_BACKEND_ORIGIN,
+            "worktree_clean": (
+                backend_status["returncode"] == 0
+                and not backend_status_entries
+            ),
+            "worktree_status_entry_count": len(backend_status_entries),
+            "git_status_returncode": backend_status["returncode"],
             "git_fsck_returncode": backend_fsck["returncode"],
         },
         "code": code,
+        "orchestration_snapshot": {
+            "manifest": (
+                str(args.orchestration_snapshot_manifest)
+                if args.orchestration_snapshot_manifest
+                else None
+            ),
+            "manifest_sha256": sha256(
+                args.orchestration_snapshot_manifest
+            ) if args.orchestration_snapshot_manifest else None,
+            "entry_count": len(snapshot_entries),
+            "manifest_errors": snapshot_manifest_errors,
+            "code_mismatch_count": len(snapshot_code_mismatches),
+            "code_mismatch_sample": snapshot_code_mismatches[:20],
+            "code_parity_passed": snapshot_code_parity_passed,
+            "claim_boundary": (
+                "Every critical workspace code hash must equal the hash in "
+                "the atomically published ORICO orchestration snapshot."
+            ),
+        },
         "immutable_inputs": inputs,
         "training_contract": {
             "architecture": "AllocationHead(10→32→16→1)",

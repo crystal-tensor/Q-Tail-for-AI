@@ -5,13 +5,18 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 
 FORMAL_PROTOCOL = "formal_errors = formal_protocol_mismatches("
+ENVIRONMENT_CODE_BINDING = (
+    "environment_code_binding = environment_code_binding_audit("
+)
 MIRROR_AUDIT = "input_audit = verified_mirror_audit("
 ROW_BUILD = "rows, selected_cache_paths = build_rows_resumable("
 RECORD_CLOSURE = (
@@ -77,6 +82,18 @@ def swap_tokens(source: str, first: str, second: str) -> str:
     ).replace(placeholder, second, 1)
 
 
+def load_trainer_module(path: Path):
+    spec = importlib.util.spec_from_file_location(
+        "qtail_training_gate_order_target",
+        path,
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("trainer module loader unavailable")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def ordering_errors(source: str) -> list[str]:
     errors: list[str] = []
     main_start = source.find("def main() -> None:")
@@ -86,6 +103,7 @@ def ordering_errors(source: str) -> list[str]:
 
     markers = [
         ("formal_protocol", FORMAL_PROTOCOL),
+        ("environment_code_binding", ENVIRONMENT_CODE_BINDING),
         ("verified_mirror", MIRROR_AUDIT),
         ("all_record_rows", ROW_BUILD),
         ("record_closure", RECORD_CLOSURE),
@@ -154,6 +172,11 @@ def main() -> None:
 
     mutations = [
         (
+            "environment_binding_after_mirror_rejected",
+            ENVIRONMENT_CODE_BINDING,
+            MIRROR_AUDIT,
+        ),
+        (
             "mirror_after_row_build_rejected",
             MIRROR_AUDIT,
             ROW_BUILD,
@@ -219,18 +242,88 @@ def main() -> None:
         }
     )
 
+    trainer_module = load_trainer_module(args.trainer)
+    with tempfile.TemporaryDirectory(
+        prefix="qtail-environment-binding-selftest-"
+    ) as temporary_directory:
+        temporary_root = Path(temporary_directory)
+        auxiliary_code = temporary_root / "auxiliary_code.py"
+        auxiliary_code.write_text("VALUE = 1\n", encoding="utf-8")
+        snapshot_manifest = temporary_root / "SHA256SUMS"
+        snapshot_manifest.write_text(
+            f"{sha256(args.trainer)}  {args.trainer.name}\n"
+            f"{sha256(auxiliary_code)}  {auxiliary_code.name}\n",
+            encoding="utf-8",
+        )
+        environment_manifest = temporary_root / "environment.json"
+        environment_payload = {
+            "status": "complete",
+            "code": [
+                {
+                    "path": str(args.trainer.resolve()),
+                    "exists": True,
+                    "sha256": sha256(args.trainer),
+                },
+                {
+                    "path": str(auxiliary_code),
+                    "exists": True,
+                    "sha256": sha256(auxiliary_code),
+                },
+            ],
+            "orchestration_snapshot": {
+                "manifest": str(snapshot_manifest),
+                "manifest_sha256": sha256(snapshot_manifest),
+                "code_parity_passed": True,
+            },
+        }
+        atomic_write_json(environment_manifest, environment_payload)
+        positive_binding = trainer_module.environment_code_binding_audit(
+            environment_manifest,
+            required=True,
+        )
+        controls.append(
+            {
+                "name": "environment_code_binding_positive_accepted",
+                "expected": "accepted",
+                "observed_errors": positive_binding.get("errors", []),
+                "passed": positive_binding.get("passed") is True,
+            }
+        )
+
+        auxiliary_code.write_text("VALUE = 2\n", encoding="utf-8")
+        negative_rejected = False
+        negative_message = ""
+        try:
+            trainer_module.environment_code_binding_audit(
+                environment_manifest,
+                required=True,
+            )
+        except SystemExit as exc:
+            negative_rejected = True
+            negative_message = str(exc)
+        controls.append(
+            {
+                "name": "environment_code_drift_rejected",
+                "expected": "rejected",
+                "observed_errors": [negative_message]
+                if negative_message
+                else [],
+                "passed": negative_rejected,
+            }
+        )
+
     passed = sum(bool(control["passed"]) for control in controls)
     payload = {
         "generated_at": now(),
-        "version": "qtail_droid_training_gate_order_selftest_v1",
+        "version": "qtail_droid_training_gate_order_selftest_v2",
         "status": "passed" if passed == len(controls) else "failed",
         "trainer": str(args.trainer),
         "trainer_sha256": sha256(args.trainer),
         "contract": (
-            "Formal protocol, verified mirror, all-record extraction, exact "
-            "record closure, parse/scan coverage, and release-stratified "
-            "holdout gates must all pass before the training-start marker and "
-            "the first optimizer-backed stage."
+            "Formal protocol, environment/code snapshot binding, verified "
+            "mirror, all-record extraction, exact record closure, parse/scan "
+            "coverage, and release-stratified holdout gates must all pass "
+            "before the training-start marker and first optimizer-backed stage."
         ),
         "controls_passed": passed,
         "controls_total": len(controls),

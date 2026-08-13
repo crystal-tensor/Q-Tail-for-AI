@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import shutil
 import subprocess
 from datetime import datetime, timezone
@@ -15,6 +17,69 @@ def run(command: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(command, text=True, capture_output=True, check=False)
 
 
+def atomic_write_json(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    temporary.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    os.replace(temporary, path)
+
+
+def validate_probe(
+    payload: dict,
+    *,
+    source: str,
+    expected_bytes: int,
+    job_root: Path,
+) -> None:
+    storage = payload.get("storage", {})
+    if (
+        payload.get("status") != "verified"
+        or payload.get("source") != source
+        or payload.get("remote_bytes") != expected_bytes
+        or payload.get("job_root") != str(job_root)
+        or not isinstance(storage, dict)
+        or storage.get("capacity_gate_passed") is not True
+        or storage.get("required_with_5_percent_slack")
+        != int(expected_bytes * 1.05)
+    ):
+        raise SystemExit("stored DROID source probe is stale or invalid")
+
+
+def write_marker(
+    *,
+    marker_dir: Path,
+    report: Path,
+    payload: dict,
+) -> Path:
+    marker = marker_dir / "DROID_SOURCE_PROBED"
+    marker_payload = {
+        "format_version": "qtail_droid_source_probe_marker_v2",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "status": "verified",
+        "source": payload["source"],
+        "remote_bytes": payload["remote_bytes"],
+        "job_root": payload["job_root"],
+        "report": str(report),
+        "report_sha256": hashlib.sha256(report.read_bytes()).hexdigest(),
+        "capacity_gate_passed_at_probe": payload["storage"][
+            "capacity_gate_passed"
+        ],
+        "required_with_5_percent_slack": payload["storage"][
+            "required_with_5_percent_slack"
+        ],
+        "claim_boundary": (
+            "This binds the official URI and observed byte count to the "
+            "stored source-probe report. Current free-space sufficiency is "
+            "evaluated separately from this historical probe."
+        ),
+    }
+    atomic_write_json(marker, marker_payload)
+    return marker
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--gsutil", type=Path, required=True)
@@ -23,7 +88,40 @@ def main() -> None:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--expected-bytes", type=int, required=True)
     parser.add_argument("--marker-dir", type=Path)
+    parser.add_argument("--seal-existing", action="store_true")
     args = parser.parse_args()
+
+    if args.seal_existing:
+        try:
+            payload = json.loads(args.out.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise SystemExit(
+                f"stored DROID source probe is unreadable: {error}"
+            ) from error
+        validate_probe(
+            payload,
+            source=args.source,
+            expected_bytes=args.expected_bytes,
+            job_root=args.job_root,
+        )
+        if not args.marker_dir:
+            raise SystemExit("--seal-existing requires --marker-dir")
+        marker = write_marker(
+            marker_dir=args.marker_dir,
+            report=args.out,
+            payload=payload,
+        )
+        print(
+            json.dumps(
+                {
+                    "status": "sealed_existing",
+                    "report": str(args.out),
+                    "marker": str(marker),
+                },
+                indent=2,
+            )
+        )
+        return
 
     size = run([str(args.gsutil), "du", "-s", args.source])
     if size.returncode != 0:
@@ -59,13 +157,19 @@ def main() -> None:
     if not payload["storage"]["capacity_gate_passed"]:
         raise SystemExit("ORICO capacity gate failed at source probe")
 
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    temporary = args.out.with_suffix(args.out.suffix + ".tmp")
-    temporary.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    temporary.replace(args.out)
+    validate_probe(
+        payload,
+        source=args.source,
+        expected_bytes=args.expected_bytes,
+        job_root=args.job_root,
+    )
+    atomic_write_json(args.out, payload)
     if args.marker_dir:
-        args.marker_dir.mkdir(parents=True, exist_ok=True)
-        (args.marker_dir / "DROID_SOURCE_PROBED").touch()
+        write_marker(
+            marker_dir=args.marker_dir,
+            report=args.out,
+            payload=payload,
+        )
     print(json.dumps(payload, indent=2, ensure_ascii=False))
 
 

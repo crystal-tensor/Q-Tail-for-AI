@@ -1,0 +1,29 @@
+{
+  "format_version": "qtail_openx_training_runtime_v1",
+  "generated_at": "2026-08-12T04:15:20.737112+00:00",
+  "status": "complete",
+  "phase": "trainer_complete",
+  "started_at": "2026-08-12T04:13:10.641980+00:00",
+  "elapsed_seconds": 130.1,
+  "steps_target": 20000,
+  "child_pid": 87483,
+  "returncode": 0,
+  "command": [
+    "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3",
+    "/Users/avalok/work/Q-TAIL-MVP/tools/qtail_train_openx_cached.py",
+    "--data-dir",
+    "/Volumes/ORICO/qtail_full_training/data/openx_demo",
+    "--out",
+    "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/training",
+    "--steps",
+    "20000",
+    "--records-per-shard",
+    "4",
+    "--min-record-parse-rate",
+    "0.95",
+    "--max-shards",
+    "0",
+    "--wait",
+    "0"
+  ]
+}

@@ -13,12 +13,17 @@ from pathlib import Path
 import qtail_verify_droid_stage_markers as marker_module
 from qtail_verify_droid_stage_markers import (
     CHECKSUM_MARKER_VERSION,
+    HARDENING_SELFTEST_CONTROL_NAMES,
+    INCREMENTAL_CLOSURE_SELFTEST_CHECKS,
     artifact_entry,
     atomic_write_json,
     final_paths,
     validate_artifact_manifest_entries,
     validate_bound_artifacts,
     validate_checksum_marker,
+    validate_incremental_closure_selftest_payload,
+    validate_hardening_selftest,
+    validate_pipeline_generation_gate,
     validate_process_log_manifest,
     validate_transition_gate,
 )
@@ -52,6 +57,74 @@ def gate_payload() -> dict:
     }
 
 
+def pipeline_generation_payload(script: Path) -> dict:
+    script_hash = artifact_entry(script)["sha256"]
+    pid = 12_345
+    command = f"/bin/zsh {script}"
+    gates = []
+    for gate in marker_module.PIPELINE_GENERATION_GATES:
+        gates.append(
+            {
+                "gate": gate,
+                "checked_at": now(),
+                "passed": True,
+                "pid": pid,
+                "lock_owner_pid": pid,
+                "command": command,
+                "expected_command": command,
+                "marker_script_sha256": script_hash,
+                "current_script_sha256": script_hash,
+                "checks": {
+                    name: True
+                    for name in marker_module.PIPELINE_GENERATION_CHECKS
+                },
+            }
+        )
+    return {
+        "format_version": "qtail_pipeline_generation_gate_v1",
+        "generated_at": now(),
+        "status": "passed",
+        "latest_gate": marker_module.PIPELINE_GENERATION_GATES[-1],
+        "gates": gates,
+    }
+
+
+def incremental_closure_selftest_payload() -> dict:
+    checks = {
+        name: True for name in INCREMENTAL_CLOSURE_SELFTEST_CHECKS
+    }
+    cases = []
+    for name in sorted(INCREMENTAL_CLOSURE_SELFTEST_CHECKS):
+        expected_success = name in {
+            "positive_current_closure",
+            "post_snapshot_tfrecord_is_deferred",
+        }
+        case = {
+            "name": name,
+            "passed": True,
+            "expected_success": expected_success,
+            "returncode": 0 if expected_success else 1,
+            "formal_full_mirror_gate": False,
+            "expected_formal_full_mirror_gate": None,
+            "deferred_after_snapshot_count": 0,
+            "expected_deferred_after_snapshot_count": None,
+        }
+        if name == "require_formal_matches_exact_full_gate":
+            case["expected_formal_full_mirror_gate"] = False
+        if name == "post_snapshot_tfrecord_is_deferred":
+            case["deferred_after_snapshot_count"] = 1
+            case["expected_deferred_after_snapshot_count"] = 1
+            case["expected_formal_full_mirror_gate"] = False
+        cases.append(case)
+    return {
+        "format_version": "qtail_droid_incremental_closure_selftest_v2",
+        "status": "passed",
+        "checks": checks,
+        "failed_checks": [],
+        "cases": cases,
+    }
+
+
 def completion_projection(committed: bool) -> tuple[dict, dict]:
     requirements = []
     for requirement_id in sorted(marker_module.COMPLETION_REQUIREMENT_IDS):
@@ -75,7 +148,7 @@ def completion_projection(committed: bool) -> tuple[dict, dict]:
         "passed_requirements": 9 if committed else 8,
         "total_requirements": 9,
         "experiment_execution_valid": True,
-        "formal_results_publishable": True,
+        "formal_results_publishable": committed,
         "outcome_is_completion_gate": False,
         "requirements": requirements,
     }
@@ -152,6 +225,42 @@ def run_public_projection_integration_controls() -> list[dict]:
             },
         )
         try:
+            controls.append(
+                {
+                    "name": "precommit_results_remain_withheld",
+                    "passed": not marker_module.validate_final_precommit_state(
+                        job_root
+                    ),
+                }
+            )
+            leaked_latest = json.loads(
+                (result_root / "latest.json").read_text(encoding="utf-8")
+            )
+            leaked_audit = json.loads(
+                (result_root / "completion_audit.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            leaked_audit["formal_results_publishable"] = True
+            leaked_latest["completion_audit"] = leaked_audit
+            atomic_write_json(result_root / "latest.json", leaked_latest)
+            atomic_write_json(
+                result_root / "completion_audit.json", leaked_audit
+            )
+            controls.append(
+                {
+                    "name": (
+                        "training_only_publication_leak_is_rejected"
+                    ),
+                    "passed": bool(
+                        marker_module.validate_final_precommit_state(job_root)
+                    ),
+                }
+            )
+            latest, audit = completion_projection(False)
+            atomic_write_json(result_root / "latest.json", latest)
+            atomic_write_json(result_root / "completion_audit.json", audit)
+
             missing_bootstrap_rejected = False
             try:
                 marker_module.commit_final_marker(job_root)
@@ -416,6 +525,132 @@ def run_controls() -> list[dict]:
             {
                 "name": "transition_gate_tun_rejected",
                 "passed": bool(validate_transition_gate(gate, "selftest")),
+            }
+        )
+
+        closure_controls = incremental_closure_selftest_payload()
+        controls.append(
+            {
+                "name": "incremental_closure_exact_seven_positive",
+                "passed": (
+                    validate_incremental_closure_selftest_payload(
+                        closure_controls
+                    )
+                    == []
+                ),
+            }
+        )
+        missing_formal = json.loads(json.dumps(closure_controls))
+        del missing_formal["checks"][
+            "require_formal_matches_exact_full_gate"
+        ]
+        controls.append(
+            {
+                "name": "incremental_closure_missing_formal_gate_rejected",
+                "passed": bool(
+                    validate_incremental_closure_selftest_payload(
+                        missing_formal
+                    )
+                ),
+            }
+        )
+        extra_check = json.loads(json.dumps(closure_controls))
+        extra_check["checks"]["unregistered_control"] = True
+        controls.append(
+            {
+                "name": "incremental_closure_extra_check_rejected",
+                "passed": bool(
+                    validate_incremental_closure_selftest_payload(extra_check)
+                ),
+            }
+        )
+        false_check = json.loads(json.dumps(closure_controls))
+        false_check["checks"]["record_count_tamper_rejected"] = False
+        controls.append(
+            {
+                "name": "incremental_closure_false_check_rejected",
+                "passed": bool(
+                    validate_incremental_closure_selftest_payload(false_check)
+                ),
+            }
+        )
+        formal_success = json.loads(json.dumps(closure_controls))
+        for case in formal_success["cases"]:
+            if case["name"] == "require_formal_matches_exact_full_gate":
+                case["expected_success"] = True
+                case["returncode"] = 0
+                break
+        controls.append(
+            {
+                "name": (
+                    "incremental_closure_formal_success_spoof_rejected"
+                ),
+                "passed": bool(
+                    validate_incremental_closure_selftest_payload(
+                        formal_success
+                    )
+                ),
+            }
+        )
+
+        pipeline_script = job_root / "qtail_orico_full_pipeline.sh"
+        pipeline_script.write_text("#!/bin/zsh\nexit 0\n", encoding="utf-8")
+        pipeline_gate = result_root / "pipeline_generation_gate.json"
+        clean_generation = pipeline_generation_payload(pipeline_script)
+        atomic_write_json(pipeline_gate, clean_generation)
+        controls.append(
+            {
+                "name": "pipeline_generation_three_gate_positive",
+                "passed": (
+                    validate_pipeline_generation_gate(
+                        pipeline_gate,
+                        script_path=pipeline_script,
+                    )
+                    == []
+                    and pipeline_gate
+                    in marker_module.training_paths(job_root)
+                ),
+            }
+        )
+        false_check = json.loads(json.dumps(clean_generation))
+        false_check["gates"][1]["checks"]["live_command_matches"] = False
+        atomic_write_json(pipeline_gate, false_check)
+        controls.append(
+            {
+                "name": "pipeline_generation_false_check_rejected",
+                "passed": bool(
+                    validate_pipeline_generation_gate(
+                        pipeline_gate,
+                        script_path=pipeline_script,
+                    )
+                ),
+            }
+        )
+        missing_gate = json.loads(json.dumps(clean_generation))
+        missing_gate["gates"].pop(1)
+        atomic_write_json(pipeline_gate, missing_gate)
+        controls.append(
+            {
+                "name": "pipeline_generation_missing_gate_rejected",
+                "passed": bool(
+                    validate_pipeline_generation_gate(
+                        pipeline_gate,
+                        script_path=pipeline_script,
+                    )
+                ),
+            }
+        )
+        atomic_write_json(pipeline_gate, clean_generation)
+        pipeline_script.write_text("#!/bin/zsh\nexit 1\n", encoding="utf-8")
+        controls.append(
+            {
+                "name": "pipeline_generation_source_drift_rejected",
+                "passed": bool(
+                    validate_pipeline_generation_gate(
+                        pipeline_gate,
+                        script_path=pipeline_script,
+                    )
+                ),
             }
         )
 
@@ -688,6 +923,50 @@ def run_controls() -> list[dict]:
             }
         )
     controls.extend(run_public_projection_integration_controls())
+    with tempfile.TemporaryDirectory(
+        prefix="qtail-hardening-identity-selftest-"
+    ) as raw:
+        fixture = Path(raw) / "hardening.json"
+
+        def write_fixture(names: list[str]) -> None:
+            fixture_controls = [
+                {"name": name, "passed": True} for name in names
+            ]
+            atomic_write_json(
+                fixture,
+                {
+                    "status": "passed",
+                    "controls_passed": len(fixture_controls),
+                    "controls_total": len(fixture_controls),
+                    "controls": fixture_controls,
+                },
+            )
+
+        canonical = sorted(HARDENING_SELFTEST_CONTROL_NAMES)
+        write_fixture(canonical)
+        canonical_passed = validate_hardening_selftest(fixture) == []
+        write_fixture(canonical[1:])
+        missing_rejected = bool(validate_hardening_selftest(fixture))
+        write_fixture([*canonical, "unregistered_control"])
+        extra_rejected = bool(validate_hardening_selftest(fixture))
+        write_fixture([*canonical, canonical[0]])
+        duplicate_rejected = bool(validate_hardening_selftest(fixture))
+        controls.append(
+            {
+                "name": (
+                    "hardening_control_identity_contract_rejects_"
+                    "missing_extra_or_duplicate"
+                ),
+                "passed": all(
+                    (
+                        canonical_passed,
+                        missing_rejected,
+                        extra_rejected,
+                        duplicate_rejected,
+                    )
+                ),
+            }
+        )
     return controls
 
 

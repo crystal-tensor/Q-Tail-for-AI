@@ -1,0 +1,291 @@
+{
+  "generated_at": "2026-08-12T04:15:21.108025+00:00",
+  "input": {
+    "input_path": "/Users/avalok/work/Q-TAIL-MVP/data/customer_semifinal_embodied_tasks.csv",
+    "columns": [
+      "task",
+      "count",
+      "success_rate",
+      "difficulty",
+      "group"
+    ],
+    "row_count": 10,
+    "profile_count": 10,
+    "detected_columns": {
+      "task": "task",
+      "count": "count",
+      "success": "success_rate",
+      "difficulty": "difficulty",
+      "group": "group"
+    }
+  },
+  "source_audit": null,
+  "pt_source": {
+    "pt_source_path": "/Users/avalok/work/Q-TAIL-MVP/data/uploaded_data.csv",
+    "pt_source_rows": 29581,
+    "pt_source_gini": 0.33948355660562657,
+    "method": "empirical_pt_bucket_from_csv"
+  },
+  "synthetic_budget": 100000.0,
+  "same_budget_audit": {
+    "same_task_set": true,
+    "same_total_budget": 100000.0,
+    "source_allocation_sum": 1.0,
+    "synthetic_allocation_sum": 1.0,
+    "allocation_sum_tolerance": 1e-06,
+    "allocation_sums_valid": true,
+    "same_response_model": "response_success_v1",
+    "same_tail_definition": "top_30_percent_by_tail_score",
+    "same_metric_set": [
+      "overall_success",
+      "tail_success",
+      "cvar20",
+      "extreme_failure_count",
+      "tail_coverage_at_50",
+      "tail_data_share"
+    ],
+    "profile_count": 10
+  },
+  "decision": {
+    "winner": "qtail_synthetic",
+    "passed": true,
+    "summary": "Q-Tail synthetic data wins under the same-budget evaluation protocol.",
+    "primary_metric": "tail_success",
+    "decision_gate": {
+      "tail_success_min_gain": 0.02,
+      "cvar20_min_gain": 0.02,
+      "tail_data_share_min_gain": 0.1,
+      "p_delta_le_0_max": 0.05
+    },
+    "reasons": [
+      "tail_success_gain=0.350590",
+      "cvar20_gain=0.395207",
+      "tail_data_share_gain=0.369861",
+      "paired_bootstrap_p_delta_le_0_within_gate",
+      "same_budget_audit_passed"
+    ]
+  },
+  "model": {
+    "name": "Q-Tail Data Engine v0",
+    "purpose": "Compare user-provided embodied data allocation against PT-heavy-tail synthetic allocation under one response model.",
+    "claim_boundary": [
+      "This evaluates data distribution quality, not full policy training.",
+      "Public Open X/Habitat/DROID anchors are aggregate-metadata validations unless full exports are supplied.",
+      "Synthetic data rows are allocation targets/scenario specs; rendering or robot execution is a downstream adapter."
+    ]
+  },
+  "evaluation": {
+    "tail_threshold_quantile": 0.7,
+    "tail_task_count": 3,
+    "source_data_metrics": {
+      "overall_success": 0.6936553442159037,
+      "tail_success": 0.35637238304098234,
+      "cvar20": 0.31097794433931253,
+      "extreme_failure_count": 2,
+      "tail_coverage_at_50": 0.0,
+      "tail_data_share": 0.020090978013646704
+    },
+    "qtail_synthetic_metrics": {
+      "overall_success": 0.8353893141392923,
+      "tail_success": 0.7069627810447741,
+      "cvar20": 0.7061853806589642,
+      "extreme_failure_count": 0,
+      "tail_coverage_at_50": 1.0,
+      "tail_data_share": 0.38995214910155307
+    },
+    "gains": {
+      "overall_success": 0.1417339699233886,
+      "tail_success": 0.3505903980037917,
+      "cvar20": 0.39520743631965166,
+      "tail_coverage_at_50": 1.0,
+      "tail_data_share": 0.3698611710879064,
+      "extreme_failure_reduction": 2
+    },
+    "significance": {
+      "method": "paired task-level bootstrap over response-model effects",
+      "bootstrap_iterations": 5000,
+      "tail_success_delta": {
+        "n": 3,
+        "delta": 0.3505903980037918,
+        "ci95": [
+          0.2609245977638611,
+          0.4631688281956259
+        ],
+        "p_delta_le_0": 0.0,
+        "positive_pair_rate": 1.0
+      },
+      "overall_success_delta": {
+        "n": 10,
+        "delta": 0.14173396992338863,
+        "ci95": [
+          0.04610015406996529,
+          0.24436305434923436
+        ],
+        "p_delta_le_0": 0.0008,
+        "positive_pair_rate": 0.5
+      },
+      "cvar20_delta": {
+        "n": 10,
+        "delta": 0.39520743631965166,
+        "ci95": [
+          0.2083976317091215,
+          0.4631688281956259
+        ],
+        "p_delta_le_0": 0.001
+      }
+    },
+    "pass_gate": {
+      "tail_success_min_gain": 0.02,
+      "cvar20_min_gain": 0.02,
+      "tail_data_share_min_gain": 0.1,
+      "p_delta_le_0_max": 0.05
+    },
+    "test_passed": true,
+    "gate_results": {
+      "tail_success_gain": true,
+      "tail_success_p": true,
+      "cvar20_gain": true,
+      "cvar20_p": true,
+      "tail_data_share_gain": true
+    },
+    "per_task": [
+      {
+        "task_id": "standard_pick_place",
+        "group": "head",
+        "tail_score": 0.10999999999999999,
+        "source_share": 0.27293404094010615,
+        "synthetic_share": 0.09786321960755963,
+        "source_effect": 0.9804999172844442,
+        "synthetic_effect": 0.9797970821203266
+      },
+      {
+        "task_id": "tabletop_push",
+        "group": "head",
+        "tail_score": 0.12993607036799668,
+        "source_share": 0.24260803639120546,
+        "synthetic_share": 0.08951691256067155,
+        "source_effect": 0.9614636425839308,
+        "synthetic_effect": 0.9597386052715842
+      },
+      {
+        "task_id": "button_press",
+        "group": "head",
+        "tail_score": 0.14815921133870177,
+        "source_share": 0.19332827899924185,
+        "synthetic_share": 0.09701529440844753,
+        "source_effect": 0.9514622898553589,
+        "synthetic_effect": 0.949692626529419
+      },
+      {
+        "task_id": "block_stack",
+        "group": "medium",
+        "tail_score": 0.1913263699174056,
+        "source_share": 0.14404852160727824,
+        "synthetic_share": 0.08321696233869771,
+        "source_effect": 0.9345854642848155,
+        "synthetic_effect": 0.9287003799240553
+      },
+      {
+        "task_id": "door_handle_turn",
+        "group": "medium",
+        "tail_score": 0.23661770346432393,
+        "source_share": 0.09855951478392722,
+        "synthetic_share": 0.08704334584053056,
+        "source_effect": 0.913314069397124,
+        "synthetic_effect": 0.9101343040216776
+      },
+      {
+        "task_id": "cluttered_drawer_open",
+        "group": "tail",
+        "tail_score": 0.5364940490893719,
+        "source_share": 0.016679302501895376,
+        "synthetic_share": 0.0689952691335204,
+        "source_effect": 0.5994303467941149,
+        "synthetic_effect": 0.7553010124484967
+      },
+      {
+        "task_id": "reflective_bottle_grasp",
+        "group": "tail",
+        "tail_score": 0.6078435753080309,
+        "source_share": 0.011751326762699014,
+        "synthetic_share": 0.08639684700901964,
+        "source_effect": 0.526680562836303,
+        "synthetic_effect": 0.7496407879430429
+      },
+      {
+        "task_id": "wet_cloth_fold_corner",
+        "group": "tail",
+        "tail_score": 0.6539389479684603,
+        "source_share": 0.009855951478392721,
+        "synthetic_share": 0.09825418960982626,
+        "source_effect": 0.4471612604443219,
+        "synthetic_effect": 0.708085858208183
+      },
+      {
+        "task_id": "transparent_cup_pick",
+        "group": "tail",
+        "tail_score": 0.7416072361927393,
+        "source_share": 0.006823351023502654,
+        "synthetic_share": 0.11933241328658076,
+        "source_effect": 0.3808398137645057,
+        "synthetic_effect": 0.708517581816394
+      },
+      {
+        "task_id": "thin_cable_insert",
+        "group": "tail",
+        "tail_score": 0.9419999999999704,
+        "source_share": 0.003411675511751327,
+        "synthetic_share": 0.17236554620514602,
+        "source_effect": 0.24111607491411938,
+        "synthetic_effect": 0.7042849031097452
+      }
+    ]
+  },
+  "external_validation_anchors": [
+    {
+      "name": "Google DeepMind Open X-Embodiment / RT-X",
+      "url": "https://robotics-transformer-x.github.io/",
+      "why_it_matters": "Large cross-embodiment robot dataset with many skills/tasks; validates the need for task/skill distribution auditing.",
+      "adapter_expected_columns": [
+        "dataset",
+        "robot",
+        "task_or_language_instruction",
+        "success_or_reward",
+        "trajectory_count"
+      ],
+      "status": "adapter-ready; full dataset not bundled locally"
+    },
+    {
+      "name": "Meta AI Habitat / Habitat 3.0",
+      "url": "https://aihabitat.org/habitat3/",
+      "why_it_matters": "Embodied AI simulator for navigation/rearrangement and human-robot collaboration; validates simulated rare-scenario mining.",
+      "adapter_expected_columns": [
+        "scene",
+        "episode_id",
+        "task",
+        "success",
+        "spl_or_reward",
+        "difficulty"
+      ],
+      "status": "adapter-ready; benchmark export required"
+    },
+    {
+      "name": "DROID / BridgeData-style real robot manipulation datasets",
+      "url": "https://droid-dataset.github.io/",
+      "why_it_matters": "Real robot manipulation trajectories can be grouped into task/scene/object tails for original-vs-synthetic evaluation.",
+      "adapter_expected_columns": [
+        "task",
+        "scene",
+        "object",
+        "success",
+        "trajectory_count"
+      ],
+      "status": "adapter-ready; local sample/export required"
+    }
+  ],
+  "artifacts": {
+    "task_profiles": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis/task_profiles.csv",
+    "qtail_synthetic_data": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis/qtail_synthetic_data.csv",
+    "per_task_comparison": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis/per_task_comparison.csv"
+  }
+}

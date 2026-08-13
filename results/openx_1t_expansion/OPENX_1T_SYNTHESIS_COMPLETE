@@ -1,0 +1,48 @@
+{
+  "format_version": "qtail_openx_1t_stage_marker_v1",
+  "stage": "synthesis",
+  "completed_at": "2026-08-12T04:15:30.947703+00:00",
+  "evidence": {
+    "validation_valid": true,
+    "winner": "qtail_synthetic",
+    "artifact_count": 7,
+    "parent_training_marker": {
+      "bytes": 1638,
+      "sha256": "1669e32f17c6896ee1d05eb025f1a4137c45fc612abb3c7d9d7ed9b27fa4c344"
+    },
+    "customer_input": {
+      "bytes": 412,
+      "sha256": "d4d27bc8c2d18a934bcda78b4838d38b7ab9eaf480f02fefac4e8344e451cd69"
+    },
+    "artifacts": {
+      "qtail_service_delivery_report.json": {
+        "bytes": 5762,
+        "sha256": "989c1b9130502e55f3c04edb5f4fc69663665d8125aae558e1519d1d0c0dbdfd"
+      },
+      "qtail_service_synthetic_plan.csv": {
+        "bytes": 3738,
+        "sha256": "c36e48efb6f1d3d509df1d0051f2bea9621feae516f996aa75325af08088cdcb"
+      },
+      "qtail_synthetic_data.csv": {
+        "bytes": 1151,
+        "sha256": "3440e7cc9b8fef2d7ca5af34e42f03337ee058b0e350c290bae1470f70f5889c"
+      },
+      "qtail_service_model_card.json": {
+        "bytes": 9465,
+        "sha256": "a28a8299939ff23d476eaf4acc0f496493a2f3bd3ea9fc72e3b539b86beaf309"
+      },
+      "qtail_data_engine_report.json": {
+        "bytes": 9589,
+        "sha256": "5bcc62925e301768b4c486dda43250409affd107c7da472179ea78d95b6c6f30"
+      },
+      "README_QTAIL_DELIVERY.md": {
+        "bytes": 4449,
+        "sha256": "a420e3c185de0e3897c7616e61d58e6a38e74212b08d605dae20ffe5c1254231"
+      },
+      "qtail_delivery_package.zip": {
+        "bytes": 14455,
+        "sha256": "77bd1a37dcb61e57a5468e7c3d7ec161145af41c2f63938d3c5f28ea2ac1010d"
+      }
+    }
+  }
+}

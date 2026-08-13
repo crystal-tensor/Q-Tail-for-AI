@@ -44,7 +44,7 @@ BOOTSTRAP_METHOD = (
 )
 BOOTSTRAP_STRATA = ("1.0.0", "1.0.1")
 OPTIMIZER_SIGNATURE = "AdamW(lr=0.002, weight_decay=0.0001)"
-CHECKPOINT_FORMAT_VERSION = 5
+CHECKPOINT_FORMAT_VERSION = 6
 CHECKPOINT_CHAIN_VERSION = "sha256_parent_v1"
 OPTIMIZER_UPDATE_SEMANTICS = (
     "Checkpoint step k stores the state after exactly k optimizer updates; "
@@ -85,6 +85,25 @@ def now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def prewarm_snapshot_status(
+    *,
+    shard_count: int,
+    coverage_quality_passed: bool,
+    full_official_tfrecord_coverage: bool,
+) -> str:
+    """Describe snapshot coverage without implying full-mirror completion."""
+    if not coverage_quality_passed:
+        return "prewarm_current_snapshot_with_coverage_errors"
+    if (
+        shard_count == FORMAL_EXPECTED_TFRECORDS
+        and full_official_tfrecord_coverage
+    ):
+        return "prewarm_full_official_shard_snapshot_complete"
+    if 0 < shard_count < FORMAL_EXPECTED_TFRECORDS:
+        return "prewarm_caught_up_current_snapshot"
+    return "prewarm_invalid_official_shard_coverage"
+
+
 def require_mount(path: Path | None) -> None:
     if path is not None and not os.path.ismount(path):
         raise RuntimeError(f"Required mount is unavailable: {path}")
@@ -96,6 +115,176 @@ def file_sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def environment_code_binding_audit(
+    manifest_path: Path | None,
+    *,
+    required: bool,
+) -> dict[str, Any]:
+    """Bind a training process to the captured, snapshotted code generation."""
+    errors: list[str] = []
+    mismatches: list[dict[str, Any]] = []
+    manifest: dict[str, Any] = {}
+    if manifest_path is None:
+        errors.append("environment_manifest_argument_missing")
+    elif not manifest_path.is_file():
+        errors.append("environment_manifest_missing")
+    else:
+        try:
+            loaded = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                manifest = loaded
+            else:
+                errors.append("environment_manifest_not_an_object")
+        except (OSError, json.JSONDecodeError) as exc:
+            errors.append(
+                f"environment_manifest_unreadable:{type(exc).__name__}"
+            )
+
+    if manifest and manifest.get("status") != "complete":
+        errors.append("environment_manifest_status_not_complete")
+    code_rows = manifest.get("code", []) if manifest else []
+    if not isinstance(code_rows, list) or not code_rows:
+        errors.append("environment_manifest_code_empty")
+        code_rows = []
+
+    seen_paths: set[str] = set()
+    checked_rows: list[dict[str, Any]] = []
+    trainer_path = Path(__file__).resolve()
+    trainer_present = False
+    for index, item in enumerate(code_rows):
+        if not isinstance(item, dict):
+            errors.append(f"environment_code_row_{index}_not_an_object")
+            continue
+        raw_path = str(item.get("path", "")).strip()
+        expected_sha256 = str(item.get("sha256", "")).strip().lower()
+        if not raw_path:
+            errors.append(f"environment_code_row_{index}_path_missing")
+            continue
+        if raw_path in seen_paths:
+            errors.append(f"environment_code_path_duplicate:{raw_path}")
+            continue
+        seen_paths.add(raw_path)
+        path = Path(raw_path)
+        valid_sha256 = bool(
+            len(expected_sha256) == 64
+            and all(character in "0123456789abcdef" for character in expected_sha256)
+        )
+        if item.get("exists") is not True:
+            mismatches.append(
+                {"path": raw_path, "reason": "captured_as_missing"}
+            )
+            continue
+        if not valid_sha256:
+            mismatches.append(
+                {"path": raw_path, "reason": "captured_sha256_invalid"}
+            )
+            continue
+        if not path.is_file():
+            mismatches.append(
+                {"path": raw_path, "reason": "live_code_missing"}
+            )
+            continue
+        current_sha256 = file_sha256(path)
+        if current_sha256 != expected_sha256:
+            mismatches.append(
+                {
+                    "path": raw_path,
+                    "reason": "live_code_sha256_mismatch",
+                    "captured_sha256": expected_sha256,
+                    "live_sha256": current_sha256,
+                }
+            )
+        checked_rows.append(
+            {"path": raw_path, "sha256": current_sha256}
+        )
+        try:
+            trainer_present = trainer_present or path.resolve() == trainer_path
+        except OSError:
+            pass
+
+    if not trainer_present:
+        errors.append("trainer_missing_from_environment_code")
+
+    snapshot = manifest.get("orchestration_snapshot", {}) if manifest else {}
+    if not isinstance(snapshot, dict):
+        snapshot = {}
+        errors.append("orchestration_snapshot_not_an_object")
+    snapshot_manifest_sha256 = str(
+        snapshot.get("manifest_sha256", "")
+    ).strip().lower()
+    if snapshot.get("code_parity_passed") is not True:
+        errors.append("orchestration_snapshot_code_parity_not_passed")
+    if not (
+        len(snapshot_manifest_sha256) == 64
+        and all(
+            character in "0123456789abcdef"
+            for character in snapshot_manifest_sha256
+        )
+    ):
+        errors.append("orchestration_snapshot_manifest_sha256_invalid")
+    snapshot_manifest_path = Path(str(snapshot.get("manifest", "")))
+    if not snapshot_manifest_path.is_file():
+        errors.append("orchestration_snapshot_manifest_missing")
+    elif file_sha256(snapshot_manifest_path) != snapshot_manifest_sha256:
+        errors.append("orchestration_snapshot_manifest_sha256_mismatch")
+
+    aggregate_payload = "\n".join(
+        f"{item['sha256']}  {item['path']}"
+        for item in sorted(checked_rows, key=lambda row: row["path"])
+    )
+    passed = bool(
+        manifest_path
+        and manifest
+        and code_rows
+        and not errors
+        and not mismatches
+        and len(checked_rows) == len(code_rows)
+    )
+    audit = {
+        "required": required,
+        "passed": passed,
+        "checked_at": now(),
+        "manifest": (
+            str(manifest_path) if manifest_path is not None else None
+        ),
+        "manifest_sha256": (
+            file_sha256(manifest_path)
+            if manifest_path is not None and manifest_path.is_file()
+            else None
+        ),
+        "captured_status": manifest.get("status") if manifest else None,
+        "code_entries": len(code_rows),
+        "checked_code_entries": len(checked_rows),
+        "checked_code_aggregate_sha256": hashlib.sha256(
+            aggregate_payload.encode("utf-8")
+        ).hexdigest(),
+        "trainer_present": trainer_present,
+        "snapshot_manifest": snapshot.get("manifest"),
+        "snapshot_manifest_sha256": snapshot_manifest_sha256 or None,
+        "snapshot_code_parity_passed": snapshot.get(
+            "code_parity_passed"
+        ) is True,
+        "errors": errors,
+        "mismatch_count": len(mismatches),
+        "mismatch_sample": mismatches[:20],
+        "claim_boundary": (
+            "This binds optimizer startup to the live hashes captured in the "
+            "environment manifest and to its atomic ORICO code snapshot."
+        ),
+    }
+    if required and not passed:
+        failure_reasons = [*errors]
+        failure_reasons.extend(
+            str(item.get("reason", "code_mismatch"))
+            for item in mismatches[:5]
+        )
+        raise SystemExit(
+            "Formal DROID environment/code binding failed: "
+            + ", ".join(failure_reasons)
+        )
+    return audit
 
 
 def temporary_path(path: Path) -> Path:
@@ -302,6 +491,110 @@ def official_md5_byte_audit(
     return result
 
 
+def checksum_stat_continuity_audit(
+    *,
+    data_dir: Path,
+    checksum_manifest_path: Path,
+    checksum_ledger_path: Path,
+    continuity_report_path: Path,
+) -> dict[str, Any]:
+    """Bind a prior full-byte checksum to unchanged local file identities."""
+    try:
+        report = json.loads(
+            continuity_report_path.read_text(encoding="utf-8")
+        )
+        checksum_manifest = json.loads(
+            checksum_manifest_path.read_text(encoding="utf-8")
+        )
+        ledger = json.loads(
+            checksum_ledger_path.read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError) as error:
+        return {
+            "verified": False,
+            "method": "bound_byte_checksum_plus_current_stat_identity_v1",
+            "error": f"unreadable_contract:{type(error).__name__}",
+        }
+
+    ledger_objects = ledger.get("objects", {})
+    manifest_objects = {
+        str(item.get("relative_path", "")): item
+        for item in checksum_manifest.get("objects", [])
+        if isinstance(item, dict)
+    }
+    errors: list[dict[str, Any]] = []
+    checked_bytes = 0
+    for relative, item in sorted(ledger_objects.items()):
+        path = data_dir / relative
+        manifest_item = manifest_objects.get(relative, {})
+        try:
+            stat = path.stat()
+        except OSError as error:
+            errors.append(
+                {
+                    "relative_path": relative,
+                    "error": f"unreadable:{type(error).__name__}",
+                }
+            )
+            continue
+        expected_bytes = int(item.get("bytes", -1))
+        checked_bytes += stat.st_size
+        if (
+            not path.is_file()
+            or stat.st_size != expected_bytes
+            or stat.st_mtime_ns != int(item.get("mtime_ns", -1))
+            or stat.st_ctime_ns != int(item.get("ctime_ns", -1))
+            or item.get("local_md5_base64")
+            != item.get("official_md5_base64")
+            or item.get("official_md5_base64")
+            != manifest_item.get("md5_base64")
+        ):
+            errors.append(
+                {
+                    "relative_path": relative,
+                    "error": "checksum_or_stat_identity_mismatch",
+                }
+            )
+
+    continuity = report.get("continuity_contract", {})
+    prior_marker_path = Path(
+        str(continuity.get("prior_checksum_marker", ""))
+    )
+    report_bindings_passed = bool(
+        report.get("status") == "complete"
+        and report.get("ready_for_full_allocation_training") is True
+        and continuity.get("version")
+        == "bound_byte_checksum_plus_4102_stat_identity_v1"
+        and continuity.get("current_stat_identity_passed") is True
+        and report.get("checksum_manifest_sha256")
+        == file_sha256(checksum_manifest_path)
+        and report.get("checksum_ledger_sha256")
+        == file_sha256(checksum_ledger_path)
+        and prior_marker_path.is_file()
+        and continuity.get("prior_checksum_marker_sha256")
+        == file_sha256(prior_marker_path)
+    )
+    verified = bool(
+        report_bindings_passed
+        and len(ledger_objects) == FORMAL_EXPECTED_OBJECTS
+        and len(manifest_objects) == FORMAL_EXPECTED_OBJECTS
+        and checked_bytes == FORMAL_EXPECTED_BYTES
+        and not errors
+    )
+    return {
+        "verified": verified,
+        "method": "bound_byte_checksum_plus_current_stat_identity_v1",
+        "continuity_report": artifact_entry(continuity_report_path),
+        "report_bindings_passed": report_bindings_passed,
+        "checked_objects": len(ledger_objects),
+        "expected_objects": FORMAL_EXPECTED_OBJECTS,
+        "checked_bytes": checked_bytes,
+        "expected_bytes": FORMAL_EXPECTED_BYTES,
+        "error_count": len(errors),
+        "error_sample": errors[:20],
+    }
+
+
 def cpu_state_dict(model: torch.nn.Module) -> dict[str, torch.Tensor]:
     return {key: value.detach().cpu() for key, value in model.state_dict().items()}
 
@@ -371,6 +664,103 @@ def environment_fingerprint(contract: dict[str, Any]) -> str:
         ensure_ascii=True,
     ).encode("ascii")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def is_sha256(value: Any) -> bool:
+    text = str(value or "").strip().lower()
+    return bool(
+        len(text) == 64
+        and all(character in "0123456789abcdef" for character in text)
+    )
+
+
+def checkpoint_environment_contract(
+    runtime_environment: dict[str, Any],
+    environment_code_binding: dict[str, Any] | None,
+    *,
+    formal_run: bool,
+) -> dict[str, Any]:
+    """Bind resumable optimizer state to its runtime and formal code snapshot."""
+    binding = environment_code_binding or {}
+    formal_binding = {
+        "required": formal_run,
+        "passed": binding.get("passed") is True if formal_run else None,
+        "environment_manifest_sha256": (
+            str(binding.get("manifest_sha256", "")).lower()
+            if formal_run
+            else None
+        ),
+        "checked_code_aggregate_sha256": (
+            str(binding.get("checked_code_aggregate_sha256", "")).lower()
+            if formal_run
+            else None
+        ),
+        "orico_snapshot_manifest_sha256": (
+            str(binding.get("snapshot_manifest_sha256", "")).lower()
+            if formal_run
+            else None
+        ),
+        "snapshot_code_parity_passed": (
+            binding.get("snapshot_code_parity_passed") is True
+            if formal_run
+            else None
+        ),
+    }
+    contract = {
+        "version": "qtail_checkpoint_environment_v2",
+        "formal_run": formal_run,
+        "runtime_environment": runtime_environment,
+        "formal_environment_binding": formal_binding,
+    }
+    errors = checkpoint_environment_contract_errors(contract)
+    if errors:
+        raise ValueError(
+            "checkpoint environment contract failed: " + ", ".join(errors)
+        )
+    return contract
+
+
+def checkpoint_environment_contract_errors(
+    contract: dict[str, Any],
+) -> list[str]:
+    errors: list[str] = []
+    if contract.get("version") != "qtail_checkpoint_environment_v2":
+        errors.append("checkpoint_environment_version")
+    if not isinstance(contract.get("runtime_environment"), dict):
+        errors.append("runtime_environment")
+    formal_run = contract.get("formal_run")
+    if not isinstance(formal_run, bool):
+        errors.append("formal_run")
+    binding = contract.get("formal_environment_binding")
+    if not isinstance(binding, dict):
+        errors.append("formal_environment_binding")
+        return errors
+    if formal_run is True:
+        if binding.get("required") is not True:
+            errors.append("formal_environment_binding_required")
+        if binding.get("passed") is not True:
+            errors.append("formal_environment_binding_passed")
+        for key in (
+            "environment_manifest_sha256",
+            "checked_code_aggregate_sha256",
+            "orico_snapshot_manifest_sha256",
+        ):
+            if not is_sha256(binding.get(key)):
+                errors.append(key)
+        if binding.get("snapshot_code_parity_passed") is not True:
+            errors.append("snapshot_code_parity_passed")
+    else:
+        expected = {
+            "required": False,
+            "passed": None,
+            "environment_manifest_sha256": None,
+            "checked_code_aggregate_sha256": None,
+            "orico_snapshot_manifest_sha256": None,
+            "snapshot_code_parity_passed": None,
+        }
+        if binding != expected:
+            errors.append("nonformal_environment_binding")
+    return errors
 
 
 def training_signature(
@@ -569,10 +959,12 @@ def checkpoint_content_errors(payload: dict[str, Any]) -> list[str]:
     environment_contract = payload.get("environment_contract")
     if not isinstance(environment_contract, dict):
         errors.append("environment_contract")
-    elif environment_fingerprint(environment_contract) != payload.get(
-        "environment_fingerprint"
-    ):
-        errors.append("environment_contract_fingerprint")
+    else:
+        errors.extend(checkpoint_environment_contract_errors(environment_contract))
+        if environment_fingerprint(environment_contract) != payload.get(
+            "environment_fingerprint"
+        ):
+            errors.append("environment_contract_fingerprint")
     return errors
 
 
@@ -1833,11 +2225,9 @@ def write_feature_cache_manifest(
         path.name for path in unreferenced_cache_files
     )
     manifest_path = out / "droid_feature_cache_manifest.json"
-    atomic_write_json(
-        manifest_path,
-        {
-            "generated_at": now(),
-            "source_snapshot_at": source_snapshot_at,
+    payload = {
+        "generated_at": now(),
+        "source_snapshot_at": source_snapshot_at,
             "source_shard_count": len(source_shard_paths),
             "source_shard_paths_sha256": hashlib.sha256(
                 "\n".join(sorted(source_shard_paths)).encode("utf-8")
@@ -1860,9 +2250,20 @@ def write_feature_cache_manifest(
                 "Only artifacts listed below are training inputs; "
                 "unreferenced cache files are excluded."
             ),
-            "artifacts": [artifact_entry(path) for path in cache_files],
-        },
-    )
+        "artifacts": [artifact_entry(path) for path in cache_files],
+    }
+    try:
+        existing = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        existing = None
+    volatile = {"generated_at", "source_snapshot_at"}
+    if isinstance(existing, dict) and {
+        key: value for key, value in existing.items() if key not in volatile
+    } == {
+        key: value for key, value in payload.items() if key not in volatile
+    }:
+        return manifest_path
+    atomic_write_json(manifest_path, payload)
     return manifest_path
 
 
@@ -1946,6 +2347,7 @@ def verified_mirror_audit(
     transport_status_path: Path | None,
     download_marker_path: Path | None,
     download_verification_path: Path | None,
+    checksum_stat_continuity_path: Path | None,
     md5_rehash_status_path: Path | None,
     required: bool,
 ) -> dict[str, Any]:
@@ -1992,7 +2394,16 @@ def verified_mirror_audit(
         expected_tfrecords=FORMAL_EXPECTED_TFRECORDS,
     )
     local_byte_md5_audit = (
-        official_md5_byte_audit(
+        checksum_stat_continuity_audit(
+            data_dir=data_dir,
+            checksum_manifest_path=checksum_manifest_path,
+            checksum_ledger_path=checksum_ledger_path,
+            continuity_report_path=checksum_stat_continuity_path,
+        )
+        if required
+        and checksum_stat_continuity_path is not None
+        and checksum_stat_continuity_path.is_file()
+        else official_md5_byte_audit(
             data_dir=data_dir,
             checksum_manifest_path=checksum_manifest_path,
             status_path=md5_rehash_status_path,
@@ -2262,6 +2673,20 @@ def load_bounded_shard_list(
     return shards
 
 
+def must_force_all_record_mode(
+    *,
+    max_shards: int,
+    shard_list: Path | None,
+    records_per_shard: int,
+) -> bool:
+    """Return true only for an unbounded full-mirror scan."""
+    return (
+        max_shards == 0
+        and shard_list is None
+        and records_per_shard > 0
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-dir", type=Path, required=True)
@@ -2305,9 +2730,18 @@ def main() -> None:
     parser.add_argument("--object-manifest", type=Path)
     parser.add_argument("--checksum-manifest", type=Path)
     parser.add_argument("--checksum-ledger", type=Path)
+    parser.add_argument("--checksum-stat-continuity", type=Path)
     parser.add_argument("--transport-status", type=Path)
     parser.add_argument("--download-marker", type=Path)
     parser.add_argument("--download-verification", type=Path)
+    parser.add_argument(
+        "--environment-manifest",
+        type=Path,
+        help=(
+            "Secret-free environment/code manifest captured from the atomic "
+            "ORICO orchestration snapshot. Required by the formal protocol."
+        ),
+    )
     parser.add_argument("--require-verified-mirror", action="store_true")
     parser.add_argument("--required-mount", type=Path)
     parser.add_argument(
@@ -2336,7 +2770,11 @@ def main() -> None:
         raise SystemExit("--shard-list and --max-shards are mutually exclusive.")
     if not 0.0 < args.holdout_fraction < 0.5:
         raise SystemExit("--holdout-fraction must be between 0 and 0.5")
-    if not args.max_shards and args.records_per_shard > 0:
+    if must_force_all_record_mode(
+        max_shards=args.max_shards,
+        shard_list=args.shard_list,
+        records_per_shard=args.records_per_shard,
+    ):
         print(
             "Full-run safety override: --max-shards=0 requires all-record mode; "
             f"ignoring --records-per-shard={args.records_per_shard}.",
@@ -2396,6 +2834,10 @@ def main() -> None:
                 + ", ".join(formal_errors)
             )
     formal_run = formal_training_requested
+    environment_code_binding = environment_code_binding_audit(
+        args.environment_manifest,
+        required=formal_run,
+    )
     input_audit = verified_mirror_audit(
         data_dir=args.data_dir,
         shards=shards,
@@ -2405,6 +2847,7 @@ def main() -> None:
         transport_status_path=args.transport_status,
         download_marker_path=args.download_marker,
         download_verification_path=args.download_verification,
+        checksum_stat_continuity_path=args.checksum_stat_continuity,
         md5_rehash_status_path=(
             args.out / "droid_local_md5_rehash_status.json"
         ),
@@ -2433,6 +2876,14 @@ def main() -> None:
     runtime_environment_sha256 = environment_fingerprint(
         runtime_environment
     )
+    checkpoint_environment = checkpoint_environment_contract(
+        runtime_environment,
+        environment_code_binding,
+        formal_run=formal_run,
+    )
+    checkpoint_environment_sha256 = environment_fingerprint(
+        checkpoint_environment
+    )
     architecture = f"AllocationHead({len(base.FEATURE_NAMES)}→32→16→1)"
     run_manifest_path = args.out / (
         "droid_feature_prewarm_run.json"
@@ -2452,7 +2903,7 @@ def main() -> None:
                 str(args.shard_list) if args.shard_list else None
             ),
             "status": (
-                "prewarming_complete_shards"
+                "prewarming_current_complete_shards"
                 if args.features_only
                 else "running"
             ),
@@ -2471,6 +2922,11 @@ def main() -> None:
             "runtime_environment_fingerprint": (
                 runtime_environment_sha256
             ),
+            "checkpoint_environment_contract": checkpoint_environment,
+            "checkpoint_environment_fingerprint": (
+                checkpoint_environment_sha256
+            ),
+            "environment_code_binding": environment_code_binding,
             "input_audit": input_audit,
             "pt_source_audit": pt_source_audit,
             "holdout_contract": {
@@ -2515,7 +2971,7 @@ def main() -> None:
         records_per_shard=args.records_per_shard,
         status_every_shards=args.status_every_shards,
         status_label=(
-            "prewarming_complete_shards"
+            "prewarming_current_complete_shards"
             if args.features_only
             else "extracting_all_records"
         ),
@@ -2537,9 +2993,24 @@ def main() -> None:
             )
     if args.features_only:
         represented_bytes = sum(int(row["bytes"]) for row in rows)
+        coverage_quality_passed = bool(
+            parse_rate >= args.min_record_parse_rate
+            and (
+                args.records_per_shard != 0
+                or scan_complete_rate
+                >= args.min_record_scan_complete_rate
+            )
+        )
+        full_official_tfrecord_coverage = bool(
+            len(rows) == FORMAL_EXPECTED_TFRECORDS
+            and all(
+                bool(release.get("full_shard_coverage"))
+                for release in release_composition
+            )
+        )
         cache_manifest_path = write_feature_cache_manifest(
             out=args.out,
-            status="prewarm_complete_shards",
+            status="prewarm_current_complete_shards_snapshot",
             shard_count=len(rows),
             represented_bytes=represented_bytes,
             cache_files=selected_cache_paths,
@@ -2548,17 +3019,23 @@ def main() -> None:
         )
         prewarm_status = {
             "generated_at": now(),
-            "status": (
-                "prewarm_complete"
-                if (
-                    parse_rate >= args.min_record_parse_rate
-                    and (
-                        args.records_per_shard != 0
-                        or scan_complete_rate >= args.min_record_scan_complete_rate
-                    )
-                )
-                else "prewarm_complete_with_coverage_errors"
+            "status": prewarm_snapshot_status(
+                shard_count=len(rows),
+                coverage_quality_passed=coverage_quality_passed,
+                full_official_tfrecord_coverage=(
+                    full_official_tfrecord_coverage
+                ),
             ),
+            "scope": (
+                "full_official_tfrecord_snapshot"
+                if full_official_tfrecord_coverage
+                else "currently_completed_tfrecord_snapshot"
+            ),
+            "official_tfrecord_target": FORMAL_EXPECTED_TFRECORDS,
+            "full_official_tfrecord_coverage": (
+                full_official_tfrecord_coverage
+            ),
+            "coverage_quality_passed": coverage_quality_passed,
             "formal_training_started": False,
             "completion_markers_written": False,
             "full_record_mode": args.records_per_shard == 0,
@@ -2583,6 +3060,12 @@ def main() -> None:
             "formal_gate": (
                 "Cache reuse is allowed only after the full mirror checksum "
                 "gate and verified input audit pass."
+            ),
+            "claim_boundary": (
+                "A caught-up current snapshot covers every TFRecord that was "
+                "complete at source_snapshot_at. It is not full DROID input "
+                "evidence until all 4,096 official TFRecords are present and "
+                "the independent checksum/record gates pass."
             ),
         }
         atomic_write_json(
@@ -2696,7 +3179,7 @@ def main() -> None:
         out=args.out,
         checkpoint_every_steps=args.checkpoint_every_steps,
         completed_models=[],
-        environment_contract=runtime_environment,
+        environment_contract=checkpoint_environment,
     )
     require_mount(args.required_mount)
     evaluation_qtail_hist, _, evaluation_qtail_model, evaluation_qtail_resume = train_once_audited(
@@ -2709,7 +3192,7 @@ def main() -> None:
         out=args.out,
         checkpoint_every_steps=args.checkpoint_every_steps,
         completed_models=["evaluation_source"],
-        environment_contract=runtime_environment,
+        environment_contract=checkpoint_environment,
     )
     holdout_source_pred = predict_allocation(
         evaluation_source_model,
@@ -2742,7 +3225,7 @@ def main() -> None:
         out=args.out,
         checkpoint_every_steps=args.checkpoint_every_steps,
         completed_models=["evaluation_source", "evaluation_qtail"],
-        environment_contract=runtime_environment,
+        environment_contract=checkpoint_environment,
     )
     require_mount(args.required_mount)
     deployment_qtail_hist, deployment_qtail_pred, qtail_model, deployment_qtail_resume = train_once_audited(
@@ -2759,7 +3242,7 @@ def main() -> None:
             "evaluation_qtail",
             "deployment_source",
         ],
-        environment_contract=runtime_environment,
+        environment_contract=checkpoint_environment,
     )
 
     require_mount(args.required_mount)
@@ -2829,6 +3312,10 @@ def main() -> None:
             "runtime_environment_fingerprint": (
                 runtime_environment_sha256
             ),
+            "checkpoint_environment_contract": checkpoint_environment,
+            "checkpoint_environment_fingerprint": (
+                checkpoint_environment_sha256
+            ),
             "datasets": datasets,
             "holdout_contract": holdout_contract,
             "pt_source_audit": pt_source_audit,
@@ -2844,7 +3331,7 @@ def main() -> None:
         checkpoint_every_steps=args.checkpoint_every_steps,
         seed=args.seed,
         device=device,
-        environment_sha256=runtime_environment_sha256,
+        environment_sha256=checkpoint_environment_sha256,
     )
 
     holdout_tail_scores = evaluation_tail_scores[holdout_indices]
@@ -2926,6 +3413,7 @@ def main() -> None:
             "Rare instruction coverage is an auxiliary byte-level fingerprint discovery proxy, not semantic task coverage or policy success.",
         ],
         "data_dir": str(args.data_dir),
+        "environment_code_binding": environment_code_binding,
         "input_audit": input_audit,
         "datasets": datasets,
         "release_composition": release_composition,
@@ -3009,6 +3497,10 @@ def main() -> None:
             "runtime_environment": runtime_environment,
             "runtime_environment_fingerprint": (
                 runtime_environment_sha256
+            ),
+            "checkpoint_environment_contract": checkpoint_environment,
+            "checkpoint_environment_fingerprint": (
+                checkpoint_environment_sha256
             ),
             "same_environment_fingerprint": True,
             "python": platform.python_version(),

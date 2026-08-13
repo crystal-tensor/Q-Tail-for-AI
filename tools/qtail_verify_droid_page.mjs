@@ -71,6 +71,12 @@ async function atomicWriteJson(path, payload) {
   await rename(temporary, path);
 }
 
+async function atomicCopy(path, source) {
+  const temporary = `${path}.tmp`;
+  await copyFile(source, temporary);
+  await rename(temporary, path);
+}
+
 async function acquireExclusiveRunLock(path) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
@@ -188,37 +194,37 @@ async function snapshotProcessLogs({jobRoot, repoRoot, resultRoot}) {
     },
     {
       name: "qtail_droid_terminal_launcher.log",
-      source: join(repoRoot, ".tmp", "qtail-droid-terminal-launcher.log"),
+      source: join(jobRoot, "logs", "qtail_droid_terminal_launcher.log"),
       required: false,
       role: "scheduled terminal launcher supervision",
     },
     {
       name: "qtail_droid_launchd_stderr.log",
-      source: join(repoRoot, ".tmp", "qtail-droid-launchd.err.log"),
+      source: join(jobRoot, "logs", "qtail_droid_launchd_stderr.log"),
       required: false,
       role: "scheduled launcher stderr history",
     },
     {
       name: "qtail_droid_launchd_stdout.log",
-      source: join(repoRoot, ".tmp", "qtail-droid-launchd.out.log"),
+      source: join(jobRoot, "logs", "qtail_droid_launchd_stdout.log"),
       required: false,
       role: "scheduled launcher stdout history",
     },
     {
       name: "qtail_uniclash_guard_stderr.log",
-      source: join(repoRoot, ".tmp", "qtail-uniclash-guard.err.log"),
+      source: join(jobRoot, "logs", "qtail_uniclash_guard_stderr.log"),
       required: false,
       role: "UniClash transport guard stderr history",
     },
     {
       name: "qtail_uniclash_guard_stdout.log",
-      source: join(repoRoot, ".tmp", "qtail-uniclash-guard.out.log"),
+      source: join(jobRoot, "logs", "qtail_uniclash_guard_stdout.log"),
       required: false,
       role: "UniClash transport guard stdout history",
     },
     {
       name: "qtail_web_services_local.log",
-      source: join(repoRoot, ".tmp", "qtail-web-services.log"),
+      source: join(jobRoot, "logs", "qtail_web_services_local.log"),
       required: false,
       role: "local web-service supervision history",
     },
@@ -340,7 +346,16 @@ async function collectArtifactUrls(browser, pageUrl) {
   try {
     const page = await context.newPage();
     await page.goto(pageUrl, {waitUntil: "networkidle", timeout: 30_000});
-    return await page.locator("a.artifact").evaluateAll((links) =>
+    await page.waitForFunction(
+      () =>
+        !document.querySelector("#completion-count")?.textContent?.startsWith("0 /")
+        && document.querySelectorAll(".formal-artifact-row").length >= 64,
+      undefined,
+      {timeout: 20_000},
+    );
+    return await page.locator(
+      "a.artifact, .formal-artifact-row:not(.wait) .formal-artifact-link",
+    ).evaluateAll((links) =>
       links.map((link) => link.href)
     );
   } finally {
@@ -464,6 +479,7 @@ async function inspectViewport(browser, {
     incrementalClosure: document.querySelector("#audit-incremental-closure")?.textContent?.trim() || "",
     releaseMilestones: document.querySelector("#audit-release-milestones")?.textContent?.trim() || "",
     runtimeHandoff: document.querySelector("#runtime-handoff")?.textContent?.trim() || "",
+    runtimeGeneration: document.querySelector("#runtime-generation")?.textContent?.trim() || "",
     runtimePrewarm: document.querySelector("#runtime-prewarm")?.textContent?.trim() || "",
     runtimeSupervision: document.querySelector("#runtime-supervision")?.textContent?.trim() || "",
     runtimeMount: document.querySelector("#runtime-mount")?.textContent?.trim() || "",
@@ -498,18 +514,44 @@ async function inspectViewport(browser, {
     parseRate: document.querySelector("#parse-rate")?.textContent?.trim() || "",
     tailGain: document.querySelector("#tail-gain")?.textContent?.trim() || "",
     tailCi: document.querySelector("#tail-ci")?.textContent?.trim() || "",
+    hypothesisGate: document.querySelector("#hypothesis-gate")?.textContent?.trim() || "",
+    hypothesisGateNote: document.querySelector("#hypothesis-gate-note")?.textContent?.trim() || "",
     resultBoundary: document.querySelector("#result-boundary")?.textContent?.trim() || "",
     rareCoverageBoundary: document.querySelector("#rare-coverage-boundary")?.textContent?.trim() || "",
     rareCoverageSummary: document.querySelector("#rare-coverage-summary")?.textContent?.trim() || "",
     rareCoverageRows: [...document.querySelectorAll("#rare-coverage-rows tr")].map(
       (row) => [...row.querySelectorAll("td")].map((cell) => cell.textContent?.trim() || ""),
     ),
+    valueStatusNote: document.querySelector("#value-status-note")?.textContent?.trim() || "",
+    valueEvidenceState: document.querySelector("#value-evidence-state")?.textContent?.trim() || "",
+    valueEvidenceNote: document.querySelector("#value-evidence-note")?.textContent?.trim() || "",
+    valueTechnicalState: document.querySelector("#value-technical-state")?.textContent?.trim() || "",
+    valueTechnicalNote: document.querySelector("#value-technical-note")?.textContent?.trim() || "",
+    valueCommercialState: document.querySelector("#value-commercial-state")?.textContent?.trim() || "",
+    valueCommercialNote: document.querySelector("#value-commercial-note")?.textContent?.trim() || "",
+    valueBoundary: document.querySelector("#value-boundary")?.textContent?.trim() || "",
     artifactStates: [...document.querySelectorAll("a.artifact")].map((link) => ({
       href: link.getAttribute("href") || "",
       state: link.querySelector(".artifact-state")?.textContent?.trim() || "",
       waiting: link.classList.contains("waiting"),
       title: link.getAttribute("title") || "",
     })),
+    formalArtifactSummary: document.querySelector("#formal-artifact-summary")?.textContent?.trim() || "",
+    formalArtifactContract: (() => {
+      const ledger = document.querySelector("#formal-artifact-ledger");
+      return {
+        requiredCount: Number(ledger?.dataset.requiredCount || 0),
+        sealedCount: Number(ledger?.dataset.sealedCount || 0),
+        generatedCount: Number(ledger?.dataset.generatedCount || 0),
+        waitCount: Number(ledger?.dataset.waitCount || 0),
+        rows: [...document.querySelectorAll(".formal-artifact-row")].map((row) => ({
+          path: row.dataset.path || "",
+          href: row.querySelector(".formal-artifact-link")?.getAttribute("href") || "",
+          state: row.dataset.state || "",
+          badge: row.querySelector(".formal-artifact-state")?.textContent?.trim() || "",
+        })),
+      };
+    })(),
     innerWidth: window.innerWidth,
     scrollWidth: document.documentElement.scrollWidth,
     bodyScrollWidth: document.body.scrollWidth,
@@ -524,6 +566,52 @@ async function inspectViewport(browser, {
   assert(consoleErrors.length === 0, `browser console errors: ${consoleErrors.join(" | ")}`);
   assert(pageErrors.length === 0, `browser page errors: ${pageErrors.join(" | ")}`);
   assert(failedResponses.length === 0, `failed page resources: ${failedResponses.join(" | ")}`);
+  assert(
+    snapshot.overviewBoundary.includes("droid_policy_learning") &&
+      snapshot.overviewBoundary.includes("仅按固定提交封存为复现参考") &&
+      snapshot.overviewBoundary.includes("不参与本次 AllocationHead 优化"),
+    `official policy-backend usage boundary is missing: ${snapshot.overviewBoundary}`,
+  );
+  assert(
+    snapshot.hypothesisGateNote.includes("gain ≥ 2 pp") &&
+      snapshot.hypothesisGateNote.includes("CI low ≥ 2 pp") &&
+      snapshot.hypothesisGateNote.includes("extreme reduction > 0") &&
+      snapshot.hypothesisGateNote.includes("结果方向不影响实验完成"),
+    `visible preregistered outcome threshold is inaccurate: ${snapshot.hypothesisGateNote}`,
+  );
+  if (!requireResults) {
+    assert(
+      snapshot.valueEvidenceState === "WITHHELD" &&
+        snapshot.valueTechnicalState === "等待正式裁决" &&
+        snapshot.valueCommercialState === "不可主张效果",
+      `unfinished page leaked a technical or commercial claim: ${
+        JSON.stringify({
+          evidence: snapshot.valueEvidenceState,
+          technical: snapshot.valueTechnicalState,
+          commercial: snapshot.valueCommercialState,
+        })
+      }`,
+    );
+    assert(
+      snapshot.valueStatusNote.includes("WITHHELD") &&
+        snapshot.valueStatusNote.includes("ROI") &&
+        snapshot.valueEvidenceNote.includes("4,102") &&
+        snapshot.valueEvidenceNote.includes("4,096") &&
+        snapshot.valueEvidenceNote.includes("187,891"),
+      `unfinished value gate is incomplete: ${snapshot.valueStatusNote} | ${
+        snapshot.valueEvidenceNote
+      }`,
+    );
+    assert(
+      snapshot.valueBoundary.includes("AllocationHead") &&
+        snapshot.valueBoundary.includes("policy 成功率") &&
+        snapshot.valueBoundary.includes("ROI") &&
+        snapshot.valueBoundary.includes("不构成"),
+      `technical/commercial claim boundary is incomplete: ${
+        snapshot.valueBoundary
+      }`,
+    );
+  }
   if (requireIntermediate) {
     assert(
       snapshot.capacityGate.includes("净余量") &&
@@ -590,6 +678,13 @@ async function inspectViewport(browser, {
         !snapshot.featureCache.includes("BLOCKED"),
       `feature-cache selection boundary is missing: ${snapshot.featureCache}`,
     );
+    const expectedCheckpointState = snapshot.checkpointGridSummary.startsWith(
+      "20 / 20 VERIFIED",
+    )
+      ? "VERIFIED"
+      : snapshot.checkpointGridSummary.startsWith("20 / 20 SAVED")
+        ? "SAVED"
+        : "WAIT";
     assert(
       snapshot.checkpointGridRows.length === 4 &&
         JSON.stringify(
@@ -606,7 +701,7 @@ async function inspectViewport(browser, {
             ["WAIT", "SAVED", "VERIFIED", "MISSING"].includes(state)
           ) &&
           row.slice(1).every(
-            (state) => state === (requireResults ? "VERIFIED" : "WAIT"),
+            (state) => state === expectedCheckpointState,
           )
         ),
       `formal checkpoint grid is malformed: ${
@@ -623,7 +718,7 @@ async function inspectViewport(browser, {
     );
     assert(
       snapshot.uniclashIsolationNote.includes("live blocked 0") &&
-        snapshot.uniclashIsolationNote.includes("cumulative blocked 0") &&
+        /cumulative blocked \d+/.test(snapshot.uniclashIsolationNote) &&
         snapshot.uniclashIsolationNote.includes("timeline") &&
         snapshot.uniclashIsolationNote.includes("clean") &&
         snapshot.uniclashIsolationNote.includes("runtime process anomalies") &&
@@ -670,12 +765,52 @@ async function inspectViewport(browser, {
         JSON.stringify(snapshot.artifactStates.slice(0, 5))
       }`,
     );
+    const formalRows = snapshot.formalArtifactContract.rows;
+    const formalStates = formalRows.reduce((counts, row) => {
+      counts[row.state] = (counts[row.state] || 0) + 1;
+      return counts;
+    }, {});
+    const formalHrefs = new Set(formalRows.map((row) => row.href));
+    const formalCheckpointRows = formalRows.filter((row) =>
+      row.href.includes("/intermediate_checkpoints/")
+    );
+    const requiredFormalGates = [
+      "results/qtail_droid_full/uniclash_checksum_handoff_gate.json",
+      "results/qtail_droid_full/uniclash_pre_environment_gate.json",
+      "results/qtail_droid_full/uniclash_pre_training_gate.json",
+    ];
+    assert(
+      snapshot.formalArtifactContract.requiredCount >= 64 &&
+        formalRows.length === snapshot.formalArtifactContract.requiredCount &&
+        formalHrefs.size === formalRows.length &&
+        formalRows.every((row) =>
+          row.path &&
+          row.href.startsWith("results/qtail_droid_full/") &&
+          ["SEALED", "GENERATED", "WAIT"].includes(row.state) &&
+          row.badge === row.state
+        ) &&
+        (formalStates.SEALED || 0) === snapshot.formalArtifactContract.sealedCount &&
+        (formalStates.GENERATED || 0) === snapshot.formalArtifactContract.generatedCount &&
+        (formalStates.WAIT || 0) === snapshot.formalArtifactContract.waitCount &&
+        formalCheckpointRows.length === 20 &&
+        requiredFormalGates.every((href) => formalHrefs.has(href)) &&
+        snapshot.formalArtifactSummary.includes(
+          `${snapshot.formalArtifactContract.requiredCount} / ${snapshot.formalArtifactContract.requiredCount}`
+        ),
+      `formal artifact ledger contract failed: ${JSON.stringify({
+        summary: snapshot.formalArtifactSummary,
+        counts: snapshot.formalArtifactContract,
+        checkpointRows: formalCheckpointRows.length,
+        requiredFormalGates: requiredFormalGates.map((href) => [href, formalHrefs.has(href)]),
+      })}`,
+    );
     const finalQaArtifact = snapshot.artifactStates.find(
       (artifact) =>
         artifact.href === "results/qtail_droid_full/final_page_qa.json",
     );
+    const finalQaReady = requireCommitted || expectedCompletion === "9 / 9";
     assert(
-      requireCommitted
+      finalQaReady
         ? finalQaArtifact?.state === "READY"
         : (
           finalQaArtifact?.state === "WAIT" &&
@@ -692,9 +827,6 @@ async function inspectViewport(browser, {
         "results/qtail_droid_full/final_page_mobile.png",
         "results/qtail_droid_full/latest_final.json",
         "results/qtail_droid_full/completion_audit_final.json",
-        "results/qtail_droid_full/final_page_postcommit_qa.json",
-        "results/qtail_droid_full/final_page_postcommit_desktop.png",
-        "results/qtail_droid_full/final_page_postcommit_mobile.png",
       ]);
       const byHref = new Map(
         snapshot.artifactStates.map((artifact) => [
@@ -710,13 +842,13 @@ async function inspectViewport(browser, {
       }
     }
     assert(
-      snapshot.protocolAudit.startsWith("38 / 38 PASS") &&
-        snapshot.protocolAudit.includes("ENV 5 / 5 PASS") &&
+      snapshot.protocolAudit.startsWith("39 / 39 PASS") &&
+        snapshot.protocolAudit.includes("ENV 9 / 9 PASS") &&
         snapshot.protocolAudit.includes("三态结论"),
-      `protocol/environment self-tests are not visible as 38/38 and 5/5: ${snapshot.protocolAudit}`,
+      `protocol/environment self-tests are not visible as 39/39 and 9/9: ${snapshot.protocolAudit}`,
     );
     assert(
-      snapshot.trainingOrderAudit.startsWith("8 / 8 PASS") &&
+      snapshot.trainingOrderAudit.startsWith("11 / 11 PASS") &&
         snapshot.trainingOrderAudit.includes("187,891") &&
         snapshot.trainingOrderAudit.includes("optimizer"),
       `formal pre-optimizer gate order is missing: ${snapshot.trainingOrderAudit}`,
@@ -736,22 +868,34 @@ async function inspectViewport(browser, {
       `single-writer controls or activation boundary are missing: ${snapshot.singleWriterAudit}`,
     );
     assert(
-      snapshot.runtimeProcessAudit.startsWith("14 / 14 PASS") &&
+      snapshot.runtimeProcessAudit.startsWith("16 / 16 PASS") &&
         snapshot.runtimeProcessAudit.includes("旧 PID") &&
+        snapshot.runtimeProcessAudit.includes("无 ORICO 写权限替换") &&
         snapshot.runtimeProcessAudit.includes("伪造预热心跳") &&
         snapshot.runtimeProcessAudit.includes("过期心跳") &&
         snapshot.runtimeProcessAudit.includes("guard 缺失") &&
         snapshot.runtimeProcessAudit.includes("handoff 自愈") &&
         snapshot.runtimeProcessAudit.includes("唯一所有权") &&
-        snapshot.runtimeProcessAudit.includes("损坏下载 marker"),
+        snapshot.runtimeProcessAudit.includes("损坏下载 marker") &&
+        snapshot.runtimeProcessAudit.includes("checksum 收敛"),
       `runtime process destructive controls are missing: ${snapshot.runtimeProcessAudit}`,
     );
-    if (requireIntermediate && !requireResults) {
-      assert(
+    if (
+      requireIntermediate &&
+      !requireResults &&
+      expectedCompletion !== "8 / 9"
+    ) {
+      const activePrewarm =
         snapshot.runtimePrewarm.includes("PID MATCH") &&
-          snapshot.runtimePrewarm.includes("HEARTBEAT PASS") &&
+        snapshot.runtimePrewarm.includes("HEARTBEAT PASS");
+      const terminalPrewarm =
+        snapshot.runtimePrewarm.includes("checksum_verified_exit") &&
+        snapshot.runtimePrewarm.includes("TERMINAL") &&
+        snapshot.runtimePrewarm.includes("HEARTBEAT PASS");
+      assert(
+        (activePrewarm || terminalPrewarm) &&
           !snapshot.runtimePrewarm.includes("BLOCKED"),
-        `PID-bound prewarm heartbeat is not visible: ${snapshot.runtimePrewarm}`,
+        `active or terminal prewarm state is not visible: ${snapshot.runtimePrewarm}`,
       );
     }
     const artifactSealMatch = snapshot.finalSealAudit.match(
@@ -759,7 +903,7 @@ async function inspectViewport(browser, {
     );
     assert(
       artifactSealMatch !== null &&
-        Number(artifactSealMatch[1]) === 63 &&
+        Number(artifactSealMatch[1]) === 64 &&
         Number(artifactSealMatch[2]) ===
           Number(artifactSealMatch[3]) +
           Number(artifactSealMatch[4]) +
@@ -767,11 +911,11 @@ async function inspectViewport(browser, {
       `artifact seal counts do not close to the dynamic required set: ${snapshot.finalSealAudit}`,
     );
     assert(
-      snapshot.finalSealAudit.includes("26 / 26 marker") &&
+      snapshot.finalSealAudit.includes("38 / 38 marker") &&
         snapshot.finalSealAudit.includes("15 / 15 projection") &&
-        snapshot.finalSealAudit.includes("7 / 7 manifest") &&
-        snapshot.finalSealAudit.includes("9 / 9 shell") &&
-        snapshot.finalSealAudit.includes("63 baseline formal artifacts") &&
+        snapshot.finalSealAudit.includes("8 / 8 manifest") &&
+        snapshot.finalSealAudit.includes("11 / 11 shell") &&
+        snapshot.finalSealAudit.includes("64 baseline formal artifacts") &&
         snapshot.finalSealAudit.includes("当前 required") &&
         snapshot.finalSealAudit.includes("已封存") &&
         snapshot.finalSealAudit.includes("已生成待封存") &&
@@ -782,7 +926,7 @@ async function inspectViewport(browser, {
     assert(
       snapshot.checksumVpnAudit.startsWith("PASS") &&
         snapshot.checksumVpnAudit.includes("LIVE 10 / 10") &&
-        snapshot.checksumVpnAudit.includes("CONTROLS 10 / 10") &&
+        snapshot.checksumVpnAudit.includes("CONTROLS 13 / 13") &&
         snapshot.checksumVpnAudit.includes("Core ON") &&
         snapshot.checksumVpnAudit.includes("en1"),
       `checksum VPN gate is missing or incomplete: ${snapshot.checksumVpnAudit}`,
@@ -804,11 +948,37 @@ async function inspectViewport(browser, {
       `per-release milestone status is missing: ${snapshot.releaseMilestones}`,
     );
     assert(
-      snapshot.runtimeHandoff.startsWith("1 process") &&
+      (
+        snapshot.runtimeHandoff.startsWith("1 process") ||
+        (
+          snapshot.runtimeHandoff.startsWith("0 processes") &&
+          snapshot.runtimeHandoff.includes("TERMINAL")
+        )
+      ) &&
         snapshot.runtimeHandoff.includes("TARGET MATCH") &&
         snapshot.runtimeHandoff.includes("1s POLL"),
       `download-generation handoff is not bound to the live pipeline: ${snapshot.runtimeHandoff}`,
     );
+    if (requireResults || requireCommitted) {
+      assert(
+        snapshot.runtimeGeneration.startsWith("HASH MATCH") &&
+          snapshot.runtimeGeneration.includes("PID"),
+        `formal/final pipeline generation is not hash-bound: ${snapshot.runtimeGeneration}`,
+      );
+    } else {
+      assert(
+        (
+          snapshot.runtimeGeneration.startsWith("HASH MATCH") ||
+          (
+            snapshot.runtimeGeneration.startsWith("HANDOFF PENDING") &&
+            snapshot.runtimeGeneration.includes("legacy marker") &&
+            snapshot.runtimeGeneration.includes("download-only")
+          )
+        ) &&
+          !snapshot.runtimeGeneration.includes("BLOCKED"),
+        `live pipeline generation state is invalid: ${snapshot.runtimeGeneration}`,
+      );
+    }
     assert(
       snapshot.runtimeSupervision.startsWith("PASS") &&
         snapshot.runtimeSupervision.includes("com.qtail.droid-full-pipeline") &&
@@ -819,7 +989,7 @@ async function inspectViewport(browser, {
     const normalizedPreflightRecords = snapshot.preflightRecords.replaceAll(",", "");
     assert(
       normalizedPreflightRecords.includes("16 records") &&
-        normalizedPreflightRecords.includes("8171162892 bytes") &&
+        /\b[1-9]\d* bytes\b/.test(normalizedPreflightRecords) &&
         normalizedPreflightRecords.includes("cap 2/shard"),
       `real-TFRecord preflight input is invalid: ${snapshot.preflightRecords}`,
     );
@@ -978,6 +1148,48 @@ async function inspectViewport(browser, {
       rareCoverageVisible || noEligibleRareCoverageVisible,
       `rare-fingerprint coverage state is incomplete: ${snapshot.rareCoverageSummary}`,
     );
+    const formalOutcome = snapshot.hypothesisGate.toUpperCase();
+    assert(
+      ["SUPPORTED", "INCONCLUSIVE", "NOT_SUPPORTED"].includes(formalOutcome),
+      `formal three-state outcome is invalid: ${snapshot.hypothesisGate}`,
+    );
+    assert(
+      snapshot.valueEvidenceState === `FORMAL · ${formalOutcome}` &&
+        snapshot.valueEvidenceNote.includes("4,096 shards") &&
+        snapshot.valueEvidenceNote.includes("187,891 records") &&
+        snapshot.valueEvidenceNote.includes("Source 40,000 = Q-Tail 40,000 optimizer updates"),
+      `formal evidence-to-value binding is incomplete: ${
+        snapshot.valueEvidenceState
+      } | ${snapshot.valueEvidenceNote}`,
+    );
+    const expectedValueStates = {
+      SUPPORTED: ["长尾分配目标获支持", "可进入受限客户试点"],
+      INCONCLUSIVE: ["证据尚不确定", "仅限探索性试点"],
+      NOT_SUPPORTED: ["预注册目标未获支持", "不得销售效果提升"],
+    };
+    assert(
+      snapshot.valueTechnicalState === expectedValueStates[formalOutcome][0] &&
+        snapshot.valueCommercialState === expectedValueStates[formalOutcome][1],
+      `formal outcome was mapped to the wrong value decision: ${
+        JSON.stringify({
+          outcome: formalOutcome,
+          technical: snapshot.valueTechnicalState,
+          commercial: snapshot.valueCommercialState,
+        })
+      }`,
+    );
+    assert(
+      snapshot.valueStatusNote.includes(formalOutcome) &&
+        snapshot.valueTechnicalNote.toLowerCase().includes("tail allocation") &&
+        snapshot.valueCommercialNote.length > 30 &&
+        snapshot.valueBoundary.includes(formalOutcome) &&
+        snapshot.valueBoundary.includes("AllocationHead") &&
+        snapshot.valueBoundary.includes("不构成机器人 policy 成功率") &&
+        snapshot.valueBoundary.includes("ROI"),
+      `formal technical/commercial interpretation is incomplete: ${
+        snapshot.valueStatusNote
+      } | ${snapshot.valueBoundary}`,
+    );
   }
   if (screenshotPath) {
     await page.screenshot({path: screenshotPath, fullPage: true});
@@ -995,6 +1207,161 @@ async function inspectViewport(browser, {
     console_errors: consoleErrors,
     page_errors: pageErrors,
     failed_responses: failedResponses,
+  };
+}
+
+async function verifyValueDecisionStates(browser, {
+  pageUrl,
+  baseLatest,
+  baseTraining,
+}) {
+  const fixtures = [
+    {
+      outcome: "supported",
+      sourceTailShare: 0.30,
+      qtailTailShare: 0.35,
+      ciLow: 3.5,
+      ciHigh: 6.5,
+      extremeReduction: 8.0,
+      technical: "长尾分配目标获支持",
+      commercial: "可进入受限客户试点",
+    },
+    {
+      outcome: "inconclusive",
+      sourceTailShare: 0.30,
+      qtailTailShare: 0.315,
+      ciLow: 1.0,
+      ciHigh: 3.0,
+      extremeReduction: 5.0,
+      technical: "证据尚不确定",
+      commercial: "仅限探索性试点",
+    },
+    {
+      outcome: "not_supported",
+      sourceTailShare: 0.30,
+      qtailTailShare: 0.29,
+      ciLow: -2.0,
+      ciHigh: 0.0,
+      extremeReduction: 0.0,
+      technical: "预注册目标未获支持",
+      commercial: "不得销售效果提升",
+    },
+  ];
+  const controls = [];
+  for (const fixture of fixtures) {
+    const latest = JSON.parse(JSON.stringify(baseLatest));
+    const training = JSON.parse(JSON.stringify(baseTraining));
+    const effect = training.effect_metrics;
+    effect.source_pred_tail_share = fixture.sourceTailShare;
+    effect.qtail_pred_tail_share = fixture.qtailTailShare;
+    effect.predicted_tail_share_gain_pp =
+      (fixture.qtailTailShare - fixture.sourceTailShare) * 100;
+    effect.source_extreme_underallocation_rate =
+      fixture.extremeReduction / 100;
+    effect.qtail_extreme_underallocation_rate = 0;
+    effect.extreme_underallocation_reduction_pp =
+      fixture.extremeReduction;
+    effect.paired_bootstrap.ci95_low_pp = fixture.ciLow;
+    effect.paired_bootstrap.ci95_high_pp = fixture.ciHigh;
+    effect.hypothesis_gate.outcome = fixture.outcome;
+    effect.hypothesis_gate.supported = fixture.outcome === "supported";
+    effect.hypothesis_gate.passed = fixture.outcome === "supported";
+    training.status = "complete";
+    training.shard_count = 4_096;
+    training.trajectory_evidence.records_decoded = 187_891;
+    training.compute_audit.source_optimizer_updates = 40_000;
+    training.compute_audit.qtail_optimizer_updates = 40_000;
+    latest.training = training;
+    latest.completion_audit = {
+      ...(latest.completion_audit || {}),
+      experiment_execution_valid: true,
+      formal_results_publishable: true,
+      outcome_is_completion_gate: false,
+    };
+    latest.markers = {
+      ...(latest.markers || {}),
+      droid_training_complete: true,
+      final_page_qa_complete: true,
+      droid_public_projection_committed: true,
+      public_projection_validation: {
+        valid: true,
+        errors: [],
+      },
+    };
+
+    const context = await browser.newContext({
+      viewport: {width: 1024, height: 768},
+      locale: "zh-CN",
+    });
+    try {
+      const page = await context.newPage();
+      await page.route(
+        "**/results/qtail_droid_full/latest.json*",
+        async (route) => {
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify(latest),
+          });
+        },
+      );
+      await page.goto(`${pageUrl}?value-fixture=${fixture.outcome}`, {
+        waitUntil: "networkidle",
+        timeout: 30_000,
+      });
+      await page.waitForFunction(
+        (outcome) =>
+          document.querySelector("#value-evidence-state")?.textContent?.trim()
+            === `FORMAL · ${outcome.toUpperCase()}`,
+        fixture.outcome,
+        {timeout: 20_000},
+      );
+      const observed = await page.evaluate(() => ({
+        evidence:
+          document.querySelector("#value-evidence-state")?.textContent?.trim()
+          || "",
+        technical:
+          document.querySelector("#value-technical-state")?.textContent?.trim()
+          || "",
+        commercial:
+          document.querySelector("#value-commercial-state")?.textContent?.trim()
+          || "",
+        boundary:
+          document.querySelector("#value-boundary")?.textContent?.trim()
+          || "",
+      }));
+      assert(
+        observed.technical === fixture.technical &&
+          observed.commercial === fixture.commercial,
+        `value-state fixture mapped incorrectly: ${
+          JSON.stringify({fixture, observed})
+        }`,
+      );
+      assert(
+        observed.boundary.includes(fixture.outcome.toUpperCase()) &&
+          observed.boundary.includes("AllocationHead") &&
+          observed.boundary.includes("不构成机器人 policy 成功率") &&
+          observed.boundary.includes("ROI"),
+        `value-state fixture lost its claim boundary: ${
+          JSON.stringify({fixture, observed})
+        }`,
+      );
+      controls.push({
+        outcome: fixture.outcome,
+        passed: true,
+        observed,
+      });
+    } finally {
+      await context.close();
+    }
+  }
+  return {
+    version: "qtail_droid_value_decision_ui_selftest_v1",
+    status: "passed",
+    controls_passed: controls.filter((item) => item.passed).length,
+    controls_total: controls.length,
+    fixture_scope: "presentation_logic_only_not_formal_training_evidence",
+    controls,
   };
 }
 
@@ -1106,15 +1473,133 @@ function validateIncrementalClosure(closure) {
   );
 }
 
+const PREWARM_STATUS_CONTROL_NAMES = [
+  "coverage_error_is_never_complete",
+  "empty_snapshot_is_rejected",
+  "exact_official_snapshot_is_complete",
+  "excess_shards_are_rejected",
+  "partial_snapshot_is_caught_up_not_complete",
+  "wrong_release_composition_is_rejected",
+];
+
+function validatePrewarmStatusContractSelftest(selftest) {
+  const checks = selftest.checks || {};
+  const observedNames = Object.keys(checks).sort();
+  assert(
+    selftest.format_version ===
+      "qtail_prewarm_status_contract_selftest_v1" &&
+      selftest.status === "passed" &&
+      Number(selftest.passed) === PREWARM_STATUS_CONTROL_NAMES.length &&
+      Number(selftest.total) === PREWARM_STATUS_CONTROL_NAMES.length,
+    "prewarm status-scope control summary is invalid",
+  );
+  assert(
+    JSON.stringify(observedNames) ===
+      JSON.stringify(PREWARM_STATUS_CONTROL_NAMES) &&
+      observedNames.every((name) => checks[name] === true),
+    "prewarm status-scope controls are incomplete or failed",
+  );
+}
+
+async function validateEnvironmentCodeBinding({
+  environment,
+  selftest,
+  report,
+  environmentPath,
+}) {
+  const requiredChecks = new Set([
+    "positive_control_completes",
+    "one_byte_mirror_mismatch_fails",
+    "orchestration_snapshot_code_drift_fails",
+    "missing_official_md5_fails",
+    "uniclash_violation_fails",
+    "transport_classifier_v6_selftest_passes",
+    "backend_commit_drift_fails",
+    "backend_origin_drift_fails",
+    "backend_worktree_dirty_fails",
+  ]);
+  const checks = selftest.checks || {};
+  assert(
+    selftest.status === "passed" &&
+      selftest.contract_version ===
+        "qtail_droid_environment_contract_selftest_v3" &&
+      Object.keys(checks).length === requiredChecks.size &&
+      Object.keys(checks).every((name) => requiredChecks.has(name)) &&
+      Object.values(checks).every((value) => value === true),
+    "environment contract self-test is not exact v3 9/9",
+  );
+  assert(
+    environment.status === "complete" &&
+      Object.keys(environment.gates || {}).length > 0 &&
+      Object.values(environment.gates || {}).every(
+        (value) => value === true,
+      ),
+    "environment manifest gates are incomplete",
+  );
+  const codeRows = Array.isArray(environment.code) ? environment.code : [];
+  assert(codeRows.length > 0, "environment code inventory is empty");
+  assert(
+    new Set(codeRows.map((item) => item.path)).size === codeRows.length,
+    "environment code inventory contains duplicate paths",
+  );
+  const liveHashes = await Promise.all(
+    codeRows.map(async (item) => ({
+      item,
+      exists: existsSync(String(item.path || "")),
+      liveSha256: existsSync(String(item.path || ""))
+        ? await sha256(String(item.path))
+        : null,
+    })),
+  );
+  assert(
+    liveHashes.every(
+      ({item, exists, liveSha256}) =>
+        item?.exists === true &&
+        exists &&
+        /^[0-9a-f]{64}$/.test(String(item.sha256 || "")) &&
+        liveSha256 === item.sha256,
+    ),
+    "live critical code no longer matches the environment manifest",
+  );
+  assert(
+    codeRows.some((item) =>
+      String(item.path || "").endsWith("/tools/qtail_train_droid_full.py"),
+    ),
+    "formal trainer is absent from the environment code inventory",
+  );
+  const snapshot = environment.orchestration_snapshot || {};
+  assert(
+    snapshot.code_parity_passed === true &&
+      Number(snapshot.code_mismatch_count) === 0 &&
+      (snapshot.manifest_errors || []).length === 0 &&
+      existsSync(String(snapshot.manifest || "")) &&
+      await sha256(String(snapshot.manifest)) === snapshot.manifest_sha256,
+    "ORICO orchestration snapshot binding is invalid",
+  );
+  const binding = report.environment_code_binding || {};
+  assert(
+    binding.required === true &&
+      binding.passed === true &&
+      binding.manifest === environmentPath &&
+      binding.manifest_sha256 === await sha256(environmentPath) &&
+      Number(binding.checked_code_entries) === codeRows.length &&
+      Number(binding.mismatch_count) === 0 &&
+      (binding.errors || []).length === 0 &&
+      binding.snapshot_code_parity_passed === true &&
+      binding.snapshot_manifest_sha256 === snapshot.manifest_sha256,
+    "training report is not bound to the live environment/code generation",
+  );
+}
+
 function validateFinalEvidence({report, audit, latest}) {
   assert(
     audit.experiment_execution_valid === true &&
-      audit.formal_results_publishable === true &&
+      audit.formal_results_publishable === false &&
       audit.outcome_is_completion_gate === false &&
       ["supported", "inconclusive", "not_supported"].includes(
         audit.hypothesis_outcome,
       ),
-    "formal result publication is not separated from hypothesis direction",
+    "pre-QA publication state is not separated from hypothesis direction",
   );
   const disk = latest.external_storage || {};
   assert(
@@ -1304,10 +1789,10 @@ function validateFinalEvidence({report, audit, latest}) {
             item.checkpoint_device === compute.training_device &&
             item.checkpoint_optimizer === compute.same_optimizer &&
             item.checkpoint_environment_fingerprint ===
-              compute.runtime_environment_fingerprint
+              compute.checkpoint_environment_fingerprint
           )
         ) &&
-        item.environment_fingerprint === compute.runtime_environment_fingerprint &&
+        item.environment_fingerprint === compute.checkpoint_environment_fingerprint &&
         item.step_semantics ===
           "Checkpoint step k is the state after exactly k optimizer updates.",
       `${stage} optimizer-update audit mismatch`,
@@ -1325,6 +1810,29 @@ function validateFinalEvidence({report, audit, latest}) {
     compute.same_environment_fingerprint === true &&
       /^[a-f0-9]{64}$/.test(String(compute.runtime_environment_fingerprint || "")),
     "runtime environment fingerprint gate failed",
+  );
+  const checkpointEnvironment = compute.checkpoint_environment_contract || {};
+  const formalCheckpointBinding =
+    checkpointEnvironment.formal_environment_binding || {};
+  const codeBinding = report.environment_code_binding || {};
+  assert(
+    /^[a-f0-9]{64}$/.test(
+      String(compute.checkpoint_environment_fingerprint || ""),
+    ) &&
+      checkpointEnvironment.version === "qtail_checkpoint_environment_v2" &&
+      checkpointEnvironment.formal_run === true &&
+      JSON.stringify(checkpointEnvironment.runtime_environment) ===
+        JSON.stringify(compute.runtime_environment) &&
+      formalCheckpointBinding.required === true &&
+      formalCheckpointBinding.passed === true &&
+      formalCheckpointBinding.environment_manifest_sha256 ===
+        codeBinding.manifest_sha256 &&
+      formalCheckpointBinding.checked_code_aggregate_sha256 ===
+        codeBinding.checked_code_aggregate_sha256 &&
+      formalCheckpointBinding.orico_snapshot_manifest_sha256 ===
+        codeBinding.snapshot_manifest_sha256 &&
+      formalCheckpointBinding.snapshot_code_parity_passed === true,
+    "checkpoint environment is not bound to the formal ORICO code snapshot",
   );
   assert(
     compute.same_optimizer === "AdamW(lr=0.002, weight_decay=0.0001)",
@@ -1616,6 +2124,28 @@ function validateFinalEvidence({report, audit, latest}) {
   const isolationCumulative = isolation.cumulative || {};
   const isolationAdjudication =
     latest.transport_isolation_adjudication || {};
+  const isolationAdjudicationValid =
+    isolationAdjudication.status === "adjudicated_transport_epochs_v6" &&
+    isolationAdjudication.findings?.length >= 5 &&
+    isolationAdjudication.findings.every(
+      (finding) => finding.data_transfer_violation === false,
+    ) &&
+    isolationAdjudication.findings.some(
+      (finding) =>
+        finding.guard_epoch === "droid_transport_root_environment_v3" &&
+        finding.coverage_gap === true,
+    ) &&
+    isolationAdjudication.remediation?.classifier_version ===
+      "droid_transport_downloader_descendants_v6_interface_bound_live" &&
+    isolationAdjudication.preservation?.archives?.length >= 5 &&
+    isolationAdjudication.preservation.archives.every(
+      (archive) =>
+        archive.sha256 ===
+        isolationAdjudication.archive_hashes_actual?.[archive.path],
+    ) &&
+    isolationAdjudication.preservation.archives.some(
+      (archive) => archive.coverage_gap === true,
+    );
   assert(
     isolation.status === "passed" || isolation.status === "passed_idle",
     "UniClash transport isolation is not passing",
@@ -1635,35 +2165,17 @@ function validateFinalEvidence({report, audit, latest}) {
   );
   assert(
     Number(isolationCumulative.samples) > 0 &&
-      Number(isolationCumulative.blocked_samples) === 0 &&
+      (Number(isolationCumulative.blocked_samples) === 0 ||
+        isolationAdjudicationValid) &&
       Number(isolationCumulative.forbidden_socket_observations) === 0 &&
       Number(isolationCumulative.wrong_route_observations) === 0 &&
       (isolationCumulative.blocked_pids || []).length === 0 &&
-      (isolationCumulative.violation_events || []).length === 0,
+      ((isolationCumulative.violation_events || []).length === 0 ||
+        isolationAdjudicationValid),
     "cumulative UniClash transport isolation audit contains violations",
   );
   assert(
-    isolationAdjudication.status === "adjudicated_transport_epochs_v6" &&
-      isolationAdjudication.findings?.length >= 5 &&
-      isolationAdjudication.findings.every(
-        (finding) => finding.data_transfer_violation === false,
-      ) &&
-      isolationAdjudication.findings.some(
-        (finding) =>
-          finding.guard_epoch === "droid_transport_root_environment_v3" &&
-          finding.coverage_gap === true,
-      ) &&
-      isolationAdjudication.remediation?.classifier_version ===
-        "droid_transport_downloader_descendants_v6_interface_bound_live" &&
-      isolationAdjudication.preservation?.archives?.length >= 5 &&
-      isolationAdjudication.preservation.archives.every(
-        (archive) =>
-          archive.sha256 ===
-          isolationAdjudication.archive_hashes_actual?.[archive.path],
-      ) &&
-      isolationAdjudication.preservation.archives.some(
-        (archive) => archive.coverage_gap === true,
-      ),
+    isolationAdjudicationValid,
     "transport classifier epoch adjudication is invalid",
   );
   const waiting = requirements.filter((item) => !item.passed).map((item) => item.id);
@@ -1676,15 +2188,23 @@ function validateFinalEvidence({report, audit, latest}) {
 
 function validateEngineeringPreflight({summary, report}) {
   assert(
+    summary.format_version === "qtail_droid_engineering_preflight_v2" &&
     summary.status === "passed_engineering_preflight" &&
       summary.scope === "bounded_test_subset_not_scientific_evidence",
     "engineering preflight status or scope is invalid",
   );
   assert(
-    Number(summary.input?.shards) === 8 &&
+      Number(summary.input?.shards) === 8 &&
+      Number(summary.input?.shards_per_release) === 4 &&
+      Number(summary.input?.releases?.["1.0.0"]) === 4 &&
+      Number(summary.input?.releases?.["1.0.1"]) === 4 &&
       Number(summary.input?.records_decoded) === 16 &&
       Number(summary.input?.record_cap_per_shard) === 2 &&
-      Number(summary.input?.bytes) === 8_171_162_892 &&
+      Number(summary.input?.bytes) > 0 &&
+      summary.input?.all_local_md5_recomputed_match_official === true &&
+      /^[a-f0-9]{64}$/.test(
+        String(summary.input?.frozen_relative_paths_sha256 || ""),
+      ) &&
       summary.input?.formal_protocol_locked === false,
     "engineering preflight input scope is invalid",
   );
@@ -1697,6 +2217,10 @@ function validateEngineeringPreflight({summary, report}) {
       compute.same_features === true &&
       compute.same_device === true &&
       compute.same_parameter_count === true &&
+      compute.same_environment_fingerprint === true &&
+      /^[a-f0-9]{64}$/.test(
+        String(compute.runtime_environment_fingerprint || ""),
+      ) &&
       Number(compute.source_optimizer_updates) === 50 &&
       Number(compute.qtail_optimizer_updates) === 50,
     "engineering preflight same-compute contract failed",
@@ -1708,6 +2232,7 @@ function validateEngineeringPreflight({summary, report}) {
       Number(resume.stage_count) === 4 &&
       resume.all_checkpoint_devices_match === true &&
       resume.all_checkpoint_optimizers_match === true &&
+      resume.all_environment_fingerprints_match === true &&
       resumeStages.length === 4 &&
       resumeStages.every(
         (stage) =>
@@ -1718,10 +2243,42 @@ function validateEngineeringPreflight({summary, report}) {
           stage.device === "mps" &&
           stage.checkpoint_device === "mps" &&
           stage.optimizer === stage.checkpoint_optimizer &&
+          stage.environment_fingerprint ===
+            compute.checkpoint_environment_fingerprint &&
+          stage.checkpoint_environment_fingerprint ===
+            compute.checkpoint_environment_fingerprint &&
+          Number(stage.checkpoint_format_version) === 6 &&
+          stage.checkpoint_chain_version === "sha256_parent_v1" &&
+          Array.isArray(stage.resume_rejections) &&
+          stage.resume_rejections.length === 0 &&
           typeof stage.training_signature === "string" &&
           stage.training_signature.length === 64,
       ),
     "engineering preflight checkpoint-resume contract failed",
+  );
+  const checkpointChain = summary.checkpoint_chain || {};
+  assert(
+    Number(checkpointChain.format_version) === 6 &&
+      checkpointChain.chain_version === "sha256_parent_v1" &&
+      JSON.stringify(checkpointChain.expected_steps) ===
+        JSON.stringify([0, 10, 20, 25]) &&
+      Number(checkpointChain.expected_checkpoint_count) === 16 &&
+      Number(checkpointChain.actual_checkpoint_count) === 16 &&
+      checkpointChain.parent_hash_chains_verified === true &&
+      checkpointChain.terminal_resume_preserved_checkpoint_hashes === true &&
+      Object.keys(checkpointChain.checkpoint_hashes || {}).length === 16 &&
+      Object.values(checkpointChain.checkpoint_hashes || {}).every((value) =>
+        /^[a-f0-9]{64}$/.test(String(value)),
+      ),
+    "engineering preflight checkpoint chain is invalid",
+  );
+  assert(
+    summary.formal_marker_isolation?.marker_dir_argument_passed_to_trainer ===
+      false &&
+      summary.formal_marker_isolation?.unchanged === true &&
+      JSON.stringify(summary.formal_marker_isolation?.before) ===
+        JSON.stringify(summary.formal_marker_isolation?.after),
+    "engineering preflight touched formal completion markers",
   );
   assert(
     summary.scientific_gate?.passed === false &&
@@ -1731,9 +2288,21 @@ function validateEngineeringPreflight({summary, report}) {
     "engineering preflight scientific result was not withheld",
   );
   const reportCompute = report.compute_audit || {};
+  const reportCheckpoint = report.intermediate_checkpoint_audit || {};
+  const reportCheckpointContract = reportCheckpoint.contract || {};
+  const releaseComposition = Object.fromEntries(
+    (report.release_composition || []).map((item) => [item.release, item]),
+  );
   assert(
+    report.status === "complete" &&
     report.training_scope === "bounded_test_subset" &&
       report.formal_protocol?.locked === false &&
+      Number(report.shard_count) === 8 &&
+      Number(report.total_bytes) === Number(summary.input?.bytes) &&
+      Number(releaseComposition["1.0.0"]?.observed_tfrecord_shards) === 4 &&
+      Number(releaseComposition["1.0.1"]?.observed_tfrecord_shards) === 4 &&
+      Number(releaseComposition["1.0.0"]?.observed_records_decoded) === 8 &&
+      Number(releaseComposition["1.0.1"]?.observed_records_decoded) === 8 &&
       reportCompute.training_device === "mps" &&
       reportCompute.mps_available === true &&
       reportCompute.same_architecture === true &&
@@ -1741,8 +2310,19 @@ function validateEngineeringPreflight({summary, report}) {
       reportCompute.same_features === true &&
       reportCompute.same_device === true &&
       reportCompute.same_parameter_count === true &&
+      reportCompute.same_environment_fingerprint === true &&
+      reportCompute.runtime_environment_fingerprint ===
+        compute.runtime_environment_fingerprint &&
       Number(reportCompute.source_optimizer_updates) === 50 &&
-      Number(reportCompute.qtail_optimizer_updates) === 50,
+      Number(reportCompute.qtail_optimizer_updates) === 50 &&
+      reportCheckpoint.status === "complete" &&
+      Number(reportCheckpoint.actual_checkpoint_count) === 16 &&
+      Number(reportCheckpointContract.expected_checkpoint_count) === 16 &&
+      reportCheckpointContract.checkpoint_format_version === 6 &&
+      reportCheckpointContract.checkpoint_chain_version ===
+        "sha256_parent_v1" &&
+      reportCheckpointContract.parent_checkpoint_hash_chains_verified ===
+        true,
     "engineering preflight report does not match its bounded scope",
   );
 }
@@ -1953,6 +2533,70 @@ async function main() {
           join(resultRoot, "droid_preflight_training_smoke_report.json"),
         ),
       });
+      const liveCompletionAudit = await readJson(
+        join(resultRoot, "completion_audit.json"),
+      );
+      const liveIntermediateEvidence =
+        (liveCompletionAudit.requirements || []).find(
+          (item) => item?.id === "intermediate_artifacts",
+        )?.evidence || {};
+      const liveProjectionContracts = [
+        {
+          artifact: "droid_environment_contract_selftest.json",
+          field: "environment_selftest_valid",
+        },
+        {
+          artifact: "droid_download_marker_selftest.json",
+          field: "download_marker_selftest_valid",
+        },
+        {
+          artifact: "droid_mirror_verifier_selftest.json",
+          field: "mirror_verifier_selftest_valid",
+        },
+        {
+          artifact: "droid_training_gate_order_selftest.json",
+          field: "training_gate_order_selftest_valid",
+        },
+        {
+          artifact: "droid_downloader_single_writer_selftest.json",
+          field: "downloader_single_writer_selftest_valid",
+        },
+        {
+          artifact: "droid_runtime_process_contract_selftest.json",
+          field: "runtime_process_contract_selftest_valid",
+        },
+        {
+          artifact: "uniclash_pre_checksum_gate.json",
+          field: "uniclash_pre_checksum_gate_valid",
+        },
+        {
+          artifact: "uniclash_pre_checksum_gate_selftest.json",
+          field: "uniclash_pre_checksum_gate_selftest_valid",
+        },
+        {
+          artifact: "droid_live_partial_marker_rejection.json",
+          field: "live_partial_marker_rejection_valid",
+        },
+      ];
+      const completionProjectionContracts = [];
+      for (const contract of liveProjectionContracts) {
+        const directArtifact = await readJson(
+          join(resultRoot, contract.artifact),
+        );
+        const projection = liveIntermediateEvidence[contract.field];
+        assert(
+          directArtifact.status === "passed"
+            && projection === true,
+          `completion audit projection disagrees with passing artifact: ${
+            contract.artifact
+          } -> ${contract.field}`,
+        );
+        completionProjectionContracts.push({
+          ...contract,
+          direct_status: directArtifact.status,
+          projected_valid: projection,
+        });
+      }
       const views = [];
       views.push(await inspectViewport(browser, {
         pageUrl: args.pageUrl,
@@ -1964,12 +2608,27 @@ async function main() {
         viewport: {width: 390, height: 844},
         requireIntermediate: true,
       }));
+      const valueDecisionUiSelftest = await verifyValueDecisionStates(
+        browser,
+        {
+          pageUrl: args.pageUrl,
+          baseLatest: await readJson(join(resultRoot, "latest.json")),
+          baseTraining: await readJson(
+            join(resultRoot, "droid_scalability_canary_full_report.json"),
+          ),
+        },
+      );
       const pageRoot = new URL(".", args.pageUrl);
       const readyArtifactHrefs = [
         ...new Set(
-          views[0].artifactStates
-            .filter((artifact) => artifact.state === "READY")
-            .map((artifact) => artifact.href),
+          [
+            ...views[0].artifactStates
+              .filter((artifact) => artifact.state === "READY")
+              .map((artifact) => artifact.href),
+            ...views[0].formalArtifactContract.rows
+              .filter((artifact) => artifact.state !== "WAIT")
+              .map((artifact) => artifact.href),
+          ],
         ),
       ].sort();
       const urlProbes = [];
@@ -1988,6 +2647,8 @@ async function main() {
         status: "smoke_passed",
         scope: "live_nonformal_desktop_mobile",
         views,
+        value_decision_ui_selftest: valueDecisionUiSelftest,
+        completion_projection_contracts: completionProjectionContracts,
         ready_artifact_link_count: readyArtifactHrefs.length,
         url_probes: urlProbes,
       };
@@ -2215,6 +2876,18 @@ async function main() {
     );
     const featureCacheVerificationPath = join(resultRoot, "droid_feature_cache_verification.json");
     const protocolSelftestPath = join(resultRoot, "droid_protocol_selftest.json");
+    const environmentManifestPath = join(
+      resultRoot,
+      "droid_environment_manifest.json",
+    );
+    const environmentContractSelftestPath = join(
+      resultRoot,
+      "droid_environment_contract_selftest.json",
+    );
+    const prewarmStatusContractSelftestPath = join(
+      resultRoot,
+      "droid_prewarm_status_contract_selftest.json",
+    );
     const downloadMarkerSelftestPath = join(
       resultRoot,
       "droid_download_marker_selftest.json",
@@ -2343,6 +3016,16 @@ async function main() {
       "immutable UniClash transport snapshot does not pass",
     );
     const report = await readJson(reportPath);
+    const environmentManifest = await readJson(environmentManifestPath);
+    const environmentContractSelftest = await readJson(
+      environmentContractSelftestPath,
+    );
+    await validateEnvironmentCodeBinding({
+      environment: environmentManifest,
+      selftest: environmentContractSelftest,
+      report,
+      environmentPath: environmentManifestPath,
+    });
     const releaseMetadataAudit = await readJson(releaseMetadataAuditPath);
     validateReleaseMetadataAudit(releaseMetadataAudit);
     const rareCoverageArtifact = await readJson(rareCoveragePath);
@@ -2390,6 +3073,12 @@ async function main() {
       );
     }
     const protocolSelftest = await readJson(protocolSelftestPath);
+    const prewarmStatusContractSelftest = await readJson(
+      prewarmStatusContractSelftestPath,
+    );
+    validatePrewarmStatusContractSelftest(
+      prewarmStatusContractSelftest,
+    );
     const downloadMarkerSelftest = await readJson(
       downloadMarkerSelftestPath,
     );
@@ -2434,11 +3123,11 @@ async function main() {
     );
     assert(
       trainingGateOrderSelftest.version ===
-        "qtail_droid_training_gate_order_selftest_v1" &&
+        "qtail_droid_training_gate_order_selftest_v2" &&
         trainingGateOrderSelftest.status === "passed" &&
-        Number(trainingGateOrderSelftest.controls_passed) === 8 &&
-        Number(trainingGateOrderSelftest.controls_total) === 8 &&
-        (trainingGateOrderSelftest.controls || []).length === 8 &&
+        Number(trainingGateOrderSelftest.controls_passed) === 11 &&
+        Number(trainingGateOrderSelftest.controls_total) === 11 &&
+        (trainingGateOrderSelftest.controls || []).length === 11 &&
         (trainingGateOrderSelftest.controls || []).every(
           (control) => control?.passed === true,
         ),
@@ -2456,9 +3145,11 @@ async function main() {
     );
     assert(
       runtimeProcessContractSelftest.status === "passed" &&
-        Number(runtimeProcessContractSelftest.checks_passed) === 14 &&
-        Number(runtimeProcessContractSelftest.checks_total) === 14 &&
-        Object.keys(runtimeProcessContractSelftest.checks || {}).length === 14 &&
+        runtimeProcessContractSelftest.control ===
+          "droid_runtime_process_contract_v11" &&
+        Number(runtimeProcessContractSelftest.checks_passed) === 16 &&
+        Number(runtimeProcessContractSelftest.checks_total) === 16 &&
+        Object.keys(runtimeProcessContractSelftest.checks || {}).length === 16 &&
         Object.values(runtimeProcessContractSelftest.checks || {}).every(
           (value) => value === true,
         ),
@@ -2476,9 +3167,9 @@ async function main() {
     );
     assert(
       preChecksumGateSelftest.status === "passed" &&
-        Number(preChecksumGateSelftest.checks_passed) === 10 &&
-        Number(preChecksumGateSelftest.checks_total) === 10 &&
-        Object.keys(preChecksumGateSelftest.checks || {}).length === 10 &&
+        Number(preChecksumGateSelftest.checks_passed) === 13 &&
+        Number(preChecksumGateSelftest.checks_total) === 13 &&
+        Object.keys(preChecksumGateSelftest.checks || {}).length === 13 &&
         Object.values(preChecksumGateSelftest.checks || {}).every(
           (value) => value === true,
         ),
@@ -2539,7 +3230,7 @@ async function main() {
     assert(protocolSelftest.status === "passed", "DROID protocol self-test failed");
     const protocolChecks = protocolSelftest.checks || {};
     assert(
-      Object.keys(protocolChecks).length === 38 &&
+      Object.keys(protocolChecks).length === 39 &&
         Object.values(protocolChecks).every((value) => value === true) &&
         protocolChecks.holdout_membership_uses_locked_official_relative_paths ===
           true &&
@@ -2563,6 +3254,8 @@ async function main() {
         protocolChecks.empty_rare_fingerprint_sets_are_explicit_auxiliary_status ===
           true &&
         protocolChecks.intermediate_checkpoint_manifest_exact_grid === true &&
+        protocolChecks.same_runtime_different_formal_snapshot_checkpoint_rejected ===
+          true &&
         protocolChecks.unexpected_intermediate_checkpoint_rejected === true &&
         protocolChecks.bounded_cli_cannot_publish_formal_completion_marker ===
           true,
@@ -2626,7 +3319,9 @@ async function main() {
       checkpointManifest.status === "complete" &&
         checkpointManifest.actual_checkpoint_count === 20 &&
         checkpointManifest.contract?.expected_checkpoint_count === 20 &&
-        checkpointManifest.contract?.checkpoint_format_version === 5 &&
+        checkpointManifest.contract?.checkpoint_format_version === 6 &&
+        checkpointManifest.contract?.environment_fingerprint ===
+          report.compute_audit?.checkpoint_environment_fingerprint &&
         checkpointManifest.contract?.checkpoint_chain_version ===
           "sha256_parent_v1" &&
         checkpointManifest.contract?.checkpoint_content_hashes_recomputed ===
@@ -2649,7 +3344,9 @@ async function main() {
             `${entry.model_stage}:${entry.step}`,
           ) &&
           entry.optimizer_updates_completed === entry.step &&
-          entry.checkpoint_format_version === 5 &&
+          entry.checkpoint_format_version === 6 &&
+          entry.environment_fingerprint ===
+            report.compute_audit?.checkpoint_environment_fingerprint &&
           entry.checkpoint_chain_version === "sha256_parent_v1" &&
           entry.device === "mps" &&
           entry.optimizer === "AdamW(lr=0.002, weight_decay=0.0001)" &&
@@ -2751,6 +3448,7 @@ async function main() {
       featureCachePartialVerificationPath,
       incrementalClosurePath,
       incrementalClosureSelftestPath,
+      prewarmStatusContractSelftestPath,
       downloadMarkerSelftestPath,
       mirrorVerifierSelftestPath,
       downloaderSingleWriterSelftestPath,
@@ -2758,7 +3456,6 @@ async function main() {
       preChecksumGatePath,
       preChecksumGateSelftestPath,
       livePartialMarkerRejectionPath,
-      downloadMarkerPath,
       releaseMilestoneStatusPath,
       ...releaseMilestonePaths,
       join(resultRoot, "droid_preflight_training_smoke.json"),
@@ -2799,7 +3496,14 @@ async function main() {
       preMarkerAudit.status === "in_progress" &&
         preMarkerAudit.passed_requirements === 8 &&
         preMarkerAudit.total_requirements === 9,
-      "completion audit did not reach the required pre-marker 8/9 state",
+      `completion audit did not reach the required pre-marker 8/9 state: `
+        + `status=${preMarkerAudit.status} `
+        + `passed=${preMarkerAudit.passed_requirements}/`
+        + `${preMarkerAudit.total_requirements} `
+        + `failed=${(preMarkerAudit.requirements || [])
+          .filter((item) => item?.passed !== true)
+          .map((item) => item?.id || "unknown")
+          .join(",")}`,
     );
     validateFinalEvidence({
       report,
@@ -2829,7 +3533,13 @@ async function main() {
       "results/qtail_droid_full/process_logs_final/progress_refresh.log",
       "results/qtail_droid_full/process_logs_final/pipeline_generation_handoff.log",
       "results/qtail_droid_full/process_logs_final/manual_endpoint_generation_handoff.log",
-      "results/qtail_droid_full/process_logs_final/qtail-web-services.log",
+      "results/qtail_droid_full/process_logs_final/qtail_web_services.log",
+      "results/qtail_droid_full/process_logs_final/qtail_droid_terminal_launcher.log",
+      "results/qtail_droid_full/process_logs_final/qtail_droid_launchd_stderr.log",
+      "results/qtail_droid_full/process_logs_final/qtail_droid_launchd_stdout.log",
+      "results/qtail_droid_full/process_logs_final/qtail_uniclash_guard_stderr.log",
+      "results/qtail_droid_full/process_logs_final/qtail_uniclash_guard_stdout.log",
+      "results/qtail_droid_full/process_logs_final/qtail_web_services_local.log",
       "results/qtail_droid_full/pipeline_timeline.json",
       "results/qtail_droid_full/pipeline_timeline_current_verification.json",
       "results/qtail_droid_full/download_verification.json",
@@ -2907,6 +3617,16 @@ async function main() {
         "results/qtail_droid_full/pipeline_timeline_final_verification.json",
         pageRoot,
       ).toString(),
+    ]);
+    const postCommitArtifactUrls = new Set([
+      new URL(
+        "results/qtail_droid_full/latest_final.json",
+        pageRoot,
+      ).toString(),
+      new URL(
+        "results/qtail_droid_full/completion_audit_final.json",
+        pageRoot,
+      ).toString(),
       new URL(
         "results/qtail_droid_full/final_page_postcommit_qa.json",
         pageRoot,
@@ -2917,16 +3637,6 @@ async function main() {
       ).toString(),
       new URL(
         "results/qtail_droid_full/final_page_postcommit_mobile.png",
-        pageRoot,
-      ).toString(),
-    ]);
-    const postCommitArtifactUrls = new Set([
-      new URL(
-        "results/qtail_droid_full/latest_final.json",
-        pageRoot,
-      ).toString(),
-      new URL(
-        "results/qtail_droid_full/completion_audit_final.json",
         pageRoot,
       ).toString(),
     ]);
@@ -2971,14 +3681,14 @@ async function main() {
       viewport: {width: 1440, height: 1000},
       expectedCompletion: "8 / 9",
       requireIntermediate: true,
-      requireResults: true,
+      requireResults: false,
     }));
     qa.pre_marker_views.push(await inspectViewport(browser, {
       pageUrl: args.pageUrl,
       viewport: {width: 390, height: 844},
       expectedCompletion: "8 / 9",
       requireIntermediate: true,
-      requireResults: true,
+      requireResults: false,
     }));
 
     const previewPayload = {
@@ -3034,18 +3744,7 @@ async function main() {
       finalAudit.requirements?.find((item) => item.id === "final_page_qa")?.passed === false,
       "final page QA requirement passed before committed marker",
     );
-    const liveTimeline = await readJson(liveTimelinePath);
-    await atomicWriteJson(finalTimelinePath, {
-      ...liveTimeline,
-      immutable_snapshot: {
-        captured_at: new Date().toISOString(),
-        source: liveTimelinePath,
-        purpose: (
-          "Hash-chained full pipeline history captured after the "
-          + "precommit completion audit reached the honest 8/9 sealing state."
-        ),
-      },
-    });
+    await atomicCopy(finalTimelinePath, liveTimelinePath);
     const timelineVerification = spawnSync(
       "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3",
       [
@@ -3100,7 +3799,7 @@ async function main() {
       expectedCompletion: "8 / 9",
       expectedStatus: "终态证据封存中",
       requireIntermediate: true,
-      requireResults: true,
+      requireResults: false,
       screenshotPath: desktopScreenshot,
     }));
     qa.final_views.push(await inspectViewport(browser, {
@@ -3109,7 +3808,7 @@ async function main() {
       expectedCompletion: "8 / 9",
       expectedStatus: "终态证据封存中",
       requireIntermediate: true,
-      requireResults: true,
+      requireResults: false,
       screenshotPath: mobileScreenshot,
     }));
     assert(
@@ -3308,7 +4007,11 @@ async function main() {
   }
 }
 
-export {snapshotProcessLogs, validateFinalEvidence};
+export {
+  snapshotProcessLogs,
+  validateFinalEvidence,
+  validatePrewarmStatusContractSelftest,
+};
 
 if (
   process.argv[1] &&

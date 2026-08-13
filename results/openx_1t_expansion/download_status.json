@@ -1,0 +1,75 @@
+{
+  "generated_at": "2026-08-12T04:13:09.519396+00:00",
+  "status": "complete",
+  "workers": 32,
+  "primary_endpoints": 2,
+  "endpoint_policy_version": "droid_public_endpoints_v4_http2_physical_interface_bound",
+  "endpoint_priority": [
+    "storage-download.googleapis.com",
+    "storage.googleapis.com JSON media API",
+    "storage.googleapis.com path API",
+    "<bucket>.storage.googleapis.com"
+  ],
+  "http_protocol": "HTTP/2",
+  "manifest": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/openx_1t_object_manifest.json",
+  "checksum_manifest": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/openx_1t_checksum_manifest.json",
+  "checksum_ledger": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/download_checksum_ledger.json",
+  "checksum_expected_objects": 3126,
+  "checksum_verified_objects": 3126,
+  "target": "/Volumes/ORICO/qtail_full_training/data/openx_demo",
+  "required_mount": "/Volumes/ORICO",
+  "disk_headroom": {
+    "root": "/Volumes/ORICO",
+    "free_bytes": 1136599535616,
+    "reserve_free_bytes": 966367641600,
+    "next_request_bytes": 0,
+    "required_free_bytes": 966367641600,
+    "headroom_bytes": 170231894016,
+    "passed": true,
+    "activation_boundary": "Applies to this downloader process generation."
+  },
+  "process_lock": {
+    "version": "qtail_droid_downloader_single_writer_v1",
+    "path": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/downloader.lock",
+    "owner_pid": 43264,
+    "started_at": "2026-08-12T02:09:49.222612+00:00",
+    "held": true
+  },
+  "object_count": 3126,
+  "expected_bytes": 1099405385580,
+  "completed_objects": 3126,
+  "completed_bytes": 1099405385580,
+  "partial_bytes": 0,
+  "progress_bytes": 1099405385580,
+  "transport_progress_bytes": 1099405385580,
+  "progress_percent": 100.0,
+  "transport_stalled_seconds": 30.075754459016025,
+  "stall_timeout_seconds": 1800,
+  "stall_abort_requested": false,
+  "route_guard": {
+    "enabled": true,
+    "expected_interface": "en1",
+    "curl_interface_bound": true,
+    "status": "passed",
+    "forbidden_interface_pattern": "^(?:utun|tun|tap|ppp|ipsec|gif|stf|lo)\\d*$",
+    "observations": [
+      {
+        "checked_at": "2026-08-12T04:12:34.194859+00:00",
+        "host": "storage-download.googleapis.com",
+        "resolved_ipv4": "142.250.69.187",
+        "interface": "en1",
+        "gateway": "192.168.3.1"
+      },
+      {
+        "checked_at": "2026-08-12T04:10:26.704649+00:00",
+        "host": "storage.googleapis.com",
+        "resolved_ipv4": "142.250.69.187",
+        "interface": "en1",
+        "gateway": "192.168.3.1"
+      }
+    ]
+  },
+  "active": [],
+  "failures": {},
+  "completed_this_run": 746
+}

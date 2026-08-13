@@ -1,0 +1,16 @@
+{
+  "format_version": "qtail_openx_feature_cache_usage_v1",
+  "generated_at": "2026-08-12T04:13:51.949243+00:00",
+  "cache_dir": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/feature_cache",
+  "ledger": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/download_checksum_ledger.json",
+  "ledger_objects": 3126,
+  "feature_extractor_version": "record_features_v2_instruction_hashes",
+  "records_per_shard": 4,
+  "rows": 3673,
+  "cached_rows": 3111,
+  "fresh_rows": 562,
+  "rejected_cache_rows": 562,
+  "rejection_reasons": {
+    "not_in_expansion_ledger": 562
+  }
+}

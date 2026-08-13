@@ -12,7 +12,10 @@ import tempfile
 from pathlib import Path
 from typing import Any, Callable
 
-from qtail_train_droid_full import load_bounded_shard_list
+from qtail_train_droid_full import (
+    load_bounded_shard_list,
+    must_force_all_record_mode,
+)
 
 
 def digest(paths: list[str]) -> str:
@@ -190,6 +193,22 @@ def main() -> None:
             conflict.returncode != 0
             and "mutually exclusive" in (
                 conflict.stdout + conflict.stderr
+            ),
+        )
+        record(
+            "bounded_shard_list_preserves_record_cap",
+            not must_force_all_record_mode(
+                max_shards=0,
+                shard_list=valid,
+                records_per_shard=2,
+            ),
+        )
+        record(
+            "unbounded_scan_forces_all_record_mode",
+            must_force_all_record_mode(
+                max_shards=0,
+                shard_list=None,
+                records_per_shard=2,
             ),
         )
 

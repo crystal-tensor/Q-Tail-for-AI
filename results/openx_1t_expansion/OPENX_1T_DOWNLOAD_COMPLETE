@@ -1,0 +1,28 @@
+{
+  "format_version": "qtail_openx_1t_stage_marker_v1",
+  "stage": "download",
+  "completed_at": "2026-08-12T04:13:09.688175+00:00",
+  "evidence": {
+    "expected_objects": 3126,
+    "expected_bytes": 1099405385580,
+    "valid_ledger_objects": 3126,
+    "artifacts": {
+      "object_manifest": {
+        "bytes": 1016338,
+        "sha256": "c4b4d7cd3c2168272f8569e834c5a8dac0ba2b1ab2ca40ec85e89620a80bf082"
+      },
+      "checksum_manifest": {
+        "bytes": 910950,
+        "sha256": "a05cc94af8363c243777b8978727ba707cd09e1267cfea470c856575af0c4273"
+      },
+      "checksum_ledger": {
+        "bytes": 1486086,
+        "sha256": "16682eeff7649c8de93f65338f1a5a4b3262aceeae3e088acc1aeaba787db794"
+      },
+      "verification": {
+        "bytes": 958,
+        "sha256": "24d4db19666d4f73d48f8894b974f964a788609229123dfb04435f314df45cde"
+      }
+    }
+  }
+}

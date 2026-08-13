@@ -27,7 +27,7 @@ start_web() {
     >/dev/null 2>&1; then
     return
   fi
-  nohup "$SERVE" -l "tcp://0.0.0.0:$port" \
+  nohup "$SERVE" --symlinks -l "tcp://0.0.0.0:$port" \
     >> "$LOCAL_LOG_ROOT/qtail-web-$port.log" 2>&1 &
 }
 

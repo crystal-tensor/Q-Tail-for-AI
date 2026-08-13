@@ -45,6 +45,11 @@ STRONG_ROWS = ROOT / "results" / "openx_strong_training" / "openx_shard_training
 STRONG_COMPLETE = ROOT / "results" / "openx_strong_training" / "STRONG_TRAINING_COMPLETE"
 FULL_DEMO_REPORT = ROOT / "results" / "openx_demo_training_full_demo" / "openx_demo_training_report.json"
 FULL_DEMO_ROWS = ROOT / "results" / "openx_demo_training_full_demo" / "openx_shard_training_rows.csv"
+EXPANSION_ROOT = ROOT / "results" / "openx_1t_expansion"
+EXPANSION_REPORT = EXPANSION_ROOT / "training" / "openx_demo_training_report.json"
+EXPANSION_ROWS = EXPANSION_ROOT / "training" / "openx_shard_training_rows.csv"
+EXPANSION_MODEL = EXPANSION_ROOT / "training" / "qtail_allocation_head.pt"
+EXPANSION_MARKER = EXPANSION_ROOT / "OPENX_1T_TRAINING_COMPLETE"
 
 
 def now_slug() -> str:
@@ -112,6 +117,13 @@ def save_access_request(payload: dict) -> dict:
 
 
 def choose_training_sources() -> tuple[Path, Path, str]:
+    if (
+        EXPANSION_MARKER.exists()
+        and EXPANSION_REPORT.exists()
+        and EXPANSION_ROWS.exists()
+        and EXPANSION_MODEL.exists()
+    ):
+        return EXPANSION_REPORT, EXPANSION_ROWS, "openx_1t_allocation_snapshot"
     if STRONG_COMPLETE.exists() and STRONG_REPORT.exists() and STRONG_ROWS.exists():
         return STRONG_REPORT, STRONG_ROWS, "strong_openx_snapshot"
     if INCREMENTAL_REPORT.exists() and INCREMENTAL_ROWS.exists():
@@ -190,7 +202,7 @@ class QTailServiceHandler(BaseHTTPRequestHandler):
                     "ok": True,
                     "service": "qtail_pt_tail_synthetic_data_service",
                     "stage": "private_preview",
-                    "training_source": "strong_openx_snapshot",
+                    "training_source": choose_training_sources()[2],
                     "endpoints": {
                         "health": "GET /health",
                         "generate": "POST /generate",
@@ -200,11 +212,14 @@ class QTailServiceHandler(BaseHTTPRequestHandler):
                     "generate_contract": {
                         "required": ["csv_text"],
                         "optional": ["filename", "synthetic_budget", "top_k"],
-                        "outputs": ["synthetic_plan", "model_card", "delivery_report", "package_zip"],
+                        "outputs": ["allocation_plan", "scenario_spec", "model_card", "delivery_report", "package_zip"],
                     },
+                    "model_capability": "allocation_and_scenario_specification",
+                    "raw_sample_generator": "not_trained",
                     "claim_boundary": [
-                        "The API generates PT-heavy-tail allocation and scenario specifications.",
-                        "It does not render robot trajectories or prove downstream policy gains without same-policy training.",
+                        "The trained model scores and reallocates a new task-profile CSV toward PT-heavy-tail buckets.",
+                        "The API does not synthesize new sensor frames, actions, or robot trajectories.",
+                        "A domain renderer or trajectory generator is still required for raw-sample production.",
                     ],
                 },
             )
@@ -224,6 +239,8 @@ class QTailServiceHandler(BaseHTTPRequestHandler):
                 "training_rows": str(rows),
                 "training_report_exists": report.exists(),
                 "training_rows_exists": rows.exists(),
+                "model_capability": "allocation_and_scenario_specification",
+                "raw_sample_generator": "not_trained",
                 "runs_dir": str(RUNS_DIR),
                 "access_request_endpoint": "/access-requests",
                 "api_docs_endpoint": "/api-docs",

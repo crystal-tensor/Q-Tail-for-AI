@@ -54,6 +54,12 @@
     .pill.ok { color: #061114; background: var(--green); border-color: var(--green); }
     .pill.warn { color: #071116; background: var(--gold); border-color: var(--gold); }
     .pill.bad { color: #ffd6d6; background: rgba(255,133,133,.12); border-color: rgba(255,133,133,.55); }
+    .status-banner { display: grid; grid-template-columns: minmax(220px, .75fr) minmax(0, 1.25fr); gap: 18px; align-items: center; padding: 18px; border: 1px solid var(--line); background: var(--panel2); }
+    .status-banner.ok { border-color: rgba(103,213,143,.65); box-shadow: inset 4px 0 0 var(--green); }
+    .status-banner.warn { border-color: rgba(230,189,98,.65); box-shadow: inset 4px 0 0 var(--gold); }
+    .status-banner.bad { border-color: rgba(255,133,133,.65); box-shadow: inset 4px 0 0 var(--red); }
+    .status-banner strong { font-size: 20px; line-height: 1.2; }
+    .status-banner .note { margin-top: 0; }
     .bar { width: 100%; height: 10px; margin-top: 12px; background: rgba(255,255,255,.08); border: 1px solid var(--line); overflow: hidden; }
     .bar > span { display: block; height: 100%; background: var(--cyan); }
     .table-wrap { width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
@@ -76,6 +82,7 @@
       .section-head { display: block; }
       .section-note { margin-top: 8px; }
       .step { grid-template-columns: 1fr; }
+      .status-banner { grid-template-columns: 1fr; }
       h1 { font-size: 34px; }
       h2 { font-size: 27px; }
       .hero { padding-top: 34px; }
@@ -87,7 +94,8 @@
     <div class="shell">
       <a class="brand" href="index.html"><span class="mark">Q</span><span>Q-Tail Open X Training</span></a>
       <nav class="nav">
-        <a href="#status">状态</a>
+        <a href="#expansion">1 TiB 实时</a>
+        <a href="#status">171 GiB 基线</a>
         <a href="#objective">目标审计</a>
         <a href="#effect">效果</a>
         <a href="#service">服务模型</a>
@@ -99,8 +107,9 @@
     <section class="hero">
       <div class="eyebrow">real Open X shards · PT-heavy-tail allocation · productized synthetic data service</div>
       <h1>Q-Tail 真实 Open X 训练与 PT 重尾数据服务进展</h1>
-      <p class="copy">这个页面展示当前真实下载、训练、效果指标和产品化路径：我们不是把聚合元数据当训练结果，而是用 Open X 官方 RLDS 子集训练 Q-Tail 分配模型，并把它推进成“客户新数据进来 -> 生成 PT 重尾具身智能数据包”的服务。</p>
+      <p class="copy">页面顶部展示新一轮 1 TiB Open X 官方 RLDS 扩展、MD5、长尾分配模型训练与分配计划生成；其后保留已完成的 171.62 GiB Strong 基线结果。当前模型不生成新的传感器帧、动作或机器人轨迹，原始样本生成器仍待训练。</p>
       <div class="actions">
+        <a class="button primary" href="results/openx_1t_expansion/status.json">查看 1 TiB 实时账本</a>
         <a class="button primary" href="results/openx_training_progress/progress_manifest.json">查看进度 JSON</a>
         <a class="button" href="results/openx_training_progress/STATUS_BRIEF.md">查看状态简报</a>
         <a class="button" href="results/openx_strong_download/DOWNLOAD_STATUS.md">查看 Strong 门禁状态</a>
@@ -142,7 +151,9 @@
     const gateDecisionTable = (rows) => `<div class="table-wrap"><table><thead><tr><th>Gate</th><th>Status</th><th>Release Condition</th><th>Current Evidence</th><th>Next Action</th></tr></thead><tbody>${(rows || []).map((r) => `<tr><td>${esc(r.gate)}</td><td>${esc(r.status)}</td><td>${esc(r.release_condition)}</td><td>${esc(r.current_evidence)}</td><td>${esc(r.next_action)}</td></tr>`).join("")}</tbody></table></div>`;
     const strongCompletionTable = (rows) => `<div class="table-wrap"><table><thead><tr><th>Dataset</th><th>Status</th><th>GiB</th><th>GiB Done</th><th>TFRecord</th><th>TFRecord Done</th><th>Partial</th><th>Errors</th></tr></thead><tbody>${(rows || []).map((r) => `<tr><td>${esc(r.dataset)}</td><td>${r.valid ? "ready" : "waiting"}</td><td>${fmt(r.gib, 2)} / ${fmt(r.min_gib, 2)}</td><td>${fmt(r.gib_completion_pct, 1)}%</td><td>${esc(r.tfrecord_count)} / ${esc(r.min_tfrecords)}</td><td>${fmt(r.tfrecord_completion_pct, 1)}%</td><td>${esc(r.partial_file_count ?? "-")}</td><td>${esc((r.errors || []).join(", ") || "-")}</td></tr>`).join("")}</tbody></table></div>`;
     const postStrongAcceptanceTable = (rows) => `<div class="table-wrap"><table><thead><tr><th>Sample</th><th>Exists</th><th>Current Source</th><th>Run</th><th>Tail Success Gain</th><th>Expected After Strong</th></tr></thead><tbody>${(rows || []).map((r) => `<tr><td>${esc(r.name)}</td><td>${r.exists ? "yes" : "no"}</td><td>${esc(r.training_source || "-")}</td><td>${esc(r.run_id || "-")}</td><td>${pp(r.tail_success_gain_pp)}</td><td>${esc(r.expected_after_strong || "-")}</td></tr>`).join("")}</tbody></table></div>`;
-    const historyTable = (rows) => `<div class="table-wrap"><table><thead><tr><th>Time</th><th>Data GiB</th><th>Download</th><th>Incremental</th><th>Tail Gain</th><th>Refresh</th><th>Strong Gate</th></tr></thead><tbody>${(rows || []).slice().reverse().map((r) => `<tr><td>${esc((r.generated_at || "").replace("T", " ").slice(0, 19))}</td><td>${fmt(r.data_gib, 3)}</td><td>${esc(r.download_dataset || "-")} · ${esc(r.download_files_done ?? "-")}/${esc(r.download_files_total ?? "-")} · ${fmt(r.download_percent, 0)}%</td><td>${fmt(r.incremental_total_gib, 3)} GiB · ${esc(r.incremental_steps || "-")} steps</td><td>${pp(r.predicted_tail_share_gain_pp)}</td><td>${esc(r.auto_refresh_status || "-")}</td><td>${r.strong_ready ? "ready" : "waiting"}</td></tr>`).join("")}</tbody></table></div>`;
+    const historyTrainingStatus = (row) => row?.strong_training_status
+      || (row?.strong_training_complete ? "complete" : row?.strong_ready ? "ready_to_start" : "waiting_for_gate");
+    const historyTable = (rows) => `<div class="table-wrap"><table><thead><tr><th>Time</th><th>Data GiB</th><th>Download</th><th>Incremental</th><th>Tail Gain</th><th>Refresh</th><th>Strong Download Gate</th><th>Strong Training</th></tr></thead><tbody>${(rows || []).slice().reverse().map((r) => `<tr><td>${esc((r.generated_at || "").replace("T", " ").slice(0, 19))}</td><td>${fmt(r.data_gib, 3)}</td><td>${esc(r.download_dataset || "-")} · ${esc(r.download_files_done ?? "-")}/${esc(r.download_files_total ?? "-")} · ${fmt(r.download_percent, 0)}%</td><td>${fmt(r.incremental_total_gib, 3)} GiB · ${esc(r.incremental_steps || "-")} steps</td><td>${pp(r.predicted_tail_share_gain_pp)}</td><td>${esc(r.auto_refresh_status || "-")}</td><td>${r.strong_ready ? "ready" : "waiting"}</td><td>${esc(historyTrainingStatus(r))}</td></tr>`).join("")}</tbody></table></div>`;
     const trainingLedgerTable = (rows) => `<div class="table-wrap"><table><thead><tr><th>Run</th><th>Clean GiB</th><th>Shards</th><th>Steps</th><th>Q-Tail Tail Share</th><th>Tail Gain</th><th>Service Tail Success</th><th>Service Tail Share</th><th>PT Goal</th></tr></thead><tbody>${(rows || []).slice().reverse().map((r) => `<tr><td>${esc((r.generated_at || r.run_id || "-").replace("T", " ").slice(0, 19))}</td><td>${fmt(r.trainable_gib, 2)}</td><td>${esc(r.shard_count ?? "-")}</td><td>${esc(r.steps ?? "-")}</td><td>${pct(r.source_pred_tail_share)} → ${pct(r.qtail_pred_tail_share)}</td><td>${pp(r.predicted_tail_share_gain_pp)}</td><td>${pp(r.service_tail_success_gain_pp)} · ${fmt(r.service_tail_success_relative_gain_pct, 1)}%</td><td>${pp(r.service_tail_data_share_gain_pp)}</td><td>${r.consistent_with_pt_tail_goal && r.service_passed ? "一致/通过" : "待验证"}</td></tr>`).join("")}</tbody></table></div>`;
     const watchdogHistoryTable = (rows) => `<div class="table-wrap"><table><thead><tr><th>Time</th><th>Action</th><th>Data GiB</th><th>Growth</th><th>Unchanged Since</th><th>No Growth</th><th>gsutil</th><th>Reasons</th></tr></thead><tbody>${(rows || []).slice().reverse().map((r) => `<tr><td>${esc((r.generated_at || "-").replace("T", " ").slice(0, 19))}</td><td>${esc(r.action || "-")}</td><td>${fmt((r.data_bytes || 0) / (1024 ** 3), 2)}</td><td>${esc(r.data_growth_bytes_since_last_check ?? "first")}</td><td>${esc((r.data_unchanged_since || "-").replace("T", " ").slice(0, 19))}</td><td>${fmt(r.no_data_growth_seconds, 0)}s</td><td>${esc(r.active_gsutil_process_count ?? "-")}</td><td>${esc((r.reasons || []).join(", ") || "none")}</td></tr>`).join("")}</tbody></table></div>`;
     const partialShardTable = (rows) => `<div class="table-wrap"><table><thead><tr><th>Dataset</th><th>Partial shard</th><th>Size</th><th>Updated</th><th>Age</th><th>State</th></tr></thead><tbody>${(rows || []).map((r) => `<tr><td>${esc(r.dataset || "-")}</td><td>${esc(r.relative_path || r.path || "-")}</td><td>${fmt(r.mib, 1)} MiB</td><td>${esc((r.mtime_local || "-").replace("T", " ").slice(0, 19))}</td><td>${fmt(r.age_seconds, 0)}s</td><td>${r.recently_active ? "active" : "waiting"}</td></tr>`).join("")}</tbody></table></div>`;
@@ -156,6 +167,24 @@
       const cls = state === "ok" ? "ok" : state === "watch" ? "warn" : "bad";
       return `<span class="pill ${cls}">${esc(state)}</span>`;
     };
+    const snapshotFreshness = (generatedAt, staleAfterSeconds = 180) => {
+      const timestamp = Date.parse(generatedAt || "");
+      if (!Number.isFinite(timestamp)) return { status: "unknown", stale: true, ageSeconds: null, label: "unknown" };
+      const ageSeconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+      const ageLabel = ageSeconds < 60 ? "<1m" : duration(ageSeconds);
+      return {
+        status: ageSeconds > staleAfterSeconds ? "stale" : "fresh",
+        stale: ageSeconds > staleAfterSeconds,
+        ageSeconds,
+        label: ageSeconds > staleAfterSeconds ? `stale · ${ageLabel} old` : `fresh · ${ageLabel} old`,
+      };
+    };
+    const stageLabel = (stage) => ({
+      strong_download_waiting: "等待 Strong 下载门禁",
+      strong_training_ready_or_running: "Strong 训练已放行",
+      strong_training_complete_post_acceptance_pending: "Strong 训练完成，等待后验收",
+      strong_allocation_service_complete: "Strong 分配头与服务闭环完成",
+    }[stage] || stage || "unknown");
     const metric = (label, value, note) => `<article class="card"><div class="label">${esc(label)}</div><div class="value">${value}</div><div class="note">${esc(note)}</div></article>`;
     const table = (rows) => `<div class="table-wrap"><table><thead><tr><th>Dataset</th><th>Disk GiB</th><th>Trainable GiB</th><th>Files</th><th>TFRecord</th><th>Trainable TFRecord</th><th>Partial</th></tr></thead><tbody>${rows.map((r) => `<tr><td>${esc(r.dataset)}</td><td>${fmt(r.gib, 3)}</td><td>${fmt(r.trainable_gib, 3)}</td><td>${esc(r.file_count)}</td><td>${esc(r.tfrecord_count)}</td><td>${esc(r.trainable_tfrecord_count)}</td><td>${esc(r.partial_file_count)}</td></tr>`).join("")}</tbody></table></div>`;
     const runTable = (rows) => `<div class="table-wrap"><table><thead><tr><th>Run</th><th>Winner</th><th>Tail success</th><th>CVaR@20</th><th>Tail share</th><th>Aligned</th><th>Artifacts</th></tr></thead><tbody>${(rows || []).map((r) => `<tr><td>${esc(r.run_id)}</td><td>${esc(r.winner || "-")}</td><td>${pp(r.tail_success_gain_pp)}</td><td>${pp(r.cvar20_gain_pp)}</td><td>${pp(r.tail_data_share_gain_pp)}</td><td>${r.aligned_with_pt_tail_goal ? "yes" : "no"}</td><td>${r.package_zip ? `<a href="${esc(artifactHref(r.package_zip))}">zip</a>` : "-"} ${r.readme ? `<a href="${esc(artifactHref(r.readme))}">README</a>` : ""}</td></tr>`).join("")}</tbody></table></div>`;
@@ -164,8 +193,148 @@
     const operatingModelTable = (rows) => `<div class="table-wrap"><table><thead><tr><th>Stage</th><th>Input</th><th>Output</th></tr></thead><tbody>${(rows || []).map((r) => `<tr><td>${esc(r.stage)}</td><td>${esc(r.input)}</td><td>${esc(r.output)}</td></tr>`).join("")}</tbody></table></div>`;
     const upgradePathTable = (rows) => `<div class="table-wrap"><table><thead><tr><th>Milestone</th><th>Status</th><th>Deliverable</th></tr></thead><tbody>${(rows || []).map((r) => `<tr><td>${esc(r.milestone)}</td><td>${esc(r.status)}</td><td>${esc(r.deliverable)}</td></tr>`).join("")}</tbody></table></div>`;
     const processTable = (rows) => `<div class="table-wrap"><table><thead><tr><th>PID</th><th>CPU</th><th>MEM</th><th>Started</th><th>Command</th></tr></thead><tbody>${(rows || []).map((r) => `<tr><td>${esc(r.pid || "-")}</td><td>${esc(r.cpu_pct || "-")}</td><td>${esc(r.mem_pct || "-")}</td><td>${esc(r.started || "-")}</td><td>${esc(r.command || "-")}</td></tr>`).join("")}</tbody></table></div>`;
+    const expansionStageLabel = (stage) => ({
+      downloading: "正在下载 Open X 1 TiB 扩展数据",
+      queued_or_restarting: "下载流水线正在恢复",
+      download_verified: "下载与官方 MD5 已通过",
+      training: "正在进行 20,000 步模型训练",
+      training_complete: "训练完成，正在准备长尾合成",
+      synthesizing: "正在生成 PT 重尾合成数据包",
+      completion_audit_failed: "产物已生成，但最终证据审计未通过",
+      complete: "1 TiB 扩展与长尾分配模型完成；原始样本生成器未训练",
+    }[stage] || stage || "等待状态");
+    const expansionDatasetTable = (rows) => `<div class="table-wrap"><table><thead><tr><th>本轮官方数据集</th><th>目标</th><th>MD5 对象</th><th>字节完成度</th><th>活动传输</th></tr></thead><tbody>${(rows || []).map((row) => typeof row === "string" ? `<tr><td>${esc(row)}</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>` : `<tr><td>${esc(row.dataset)}</td><td>${fmt(row.expected_gib, 2)} GiB</td><td>${esc(row.verified_objects)} / ${esc(row.expected_objects)}</td><td>${fmt(row.byte_progress_percent, 2)}%</td><td>${esc(row.active_transfers)}</td></tr>`).join("")}</tbody></table></div>`;
+    const expansionCompletionTable = (rows) => `<div class="table-wrap"><table><thead><tr><th>最终完成条件</th><th>状态</th><th>证据</th></tr></thead><tbody>${(rows || []).map((row) => `<tr><td>${esc(row.label)}</td><td>${row.passed ? "PASS" : "WAIT"}</td><td>${esc(row.evidence)}</td></tr>`).join("")}</tbody></table></div>`;
+    const expansionHistoryTable = (rows) => `<div class="table-wrap"><table><thead><tr><th>UTC 时间</th><th>阶段</th><th>落盘</th><th>进度</th><th>官方 MD5</th><th>特征缓存</th><th>速度</th><th>路由</th></tr></thead><tbody>${(rows || []).slice().reverse().map((row) => `<tr><td>${esc((row.generated_at || "-").replace("T", " ").slice(0, 19))}</td><td>${esc(row.stage)}</td><td>${fmt(row.progress_gib, 2)} GiB</td><td>${fmt(row.progress_percent, 3)}%</td><td>${esc(row.md5_verified_objects)} / ${esc(row.expected_objects)}</td><td>${row.prewarm_verified_objects == null ? "-" : `${esc(row.prewarm_cached_objects || 0)} / ${esc(row.prewarm_verified_objects || 0)} · fail ${esc(row.prewarm_failed_objects || 0)}`}</td><td>${fmt(row.transfer_rate_mib_s, 2)} MiB/s</td><td>${esc(row.route_status)} · ${esc(row.route_interface)}</td></tr>`).join("")}</tbody></table></div>`;
+    const expansionSection = (x) => {
+      if (!x || !x.selection) return `<section id="expansion"><div class="status-banner warn"><strong>1 TiB 扩展状态暂不可读</strong><div class="note">后台下载仍由独立流水线托管；页面将在下次刷新时重试。</div></div></section>`;
+      const selection = x.selection || {};
+      const download = x.download || {};
+      const verification = x.verification || {};
+      const prewarm = x.prewarm || {};
+      const training = x.training || {};
+      const synthesis = x.synthesis || {};
+      const preflight = x.handoff_preflight || {};
+      const runtime = x.runtime || {};
+      const route = download.route_guard || {};
+      const supervision = runtime.supervision || {};
+      const webPage = runtime.web_page || {};
+      const stageMarkers = runtime.stage_markers || {};
+      const finalPageQa = runtime.final_page_qa || {};
+      const observation = (route.observations || []).slice(-1)[0] || {};
+      const effect = training.effect_metrics || {};
+      const syntheticEffect = synthesis.effect_summary || {};
+      const gates = x.pipeline_gates || {};
+      const completion = x.completion || {};
+      const history = x.history || {};
+      const gate = (name, fallback) => gates[name] || { status: fallback, evidence: "等待实时账本" };
+      const progressPercent = Math.max(0, Math.min(100, Number(download.progress_percent || 0)));
+      const completedScaleGib = 171.622 + Number(selection.selected_gib || 0);
+      const complete = x.stage === "complete";
+      const generated = snapshotFreshness(x.generated_at, 120);
+      const trainingRunning = (runtime.trainer || []).length > 0;
+      const synthesisRunning = (runtime.synthesizer || []).length > 0;
+      const optimizer = training.optimizer_progress || {};
+      return `
+        <section id="expansion">
+          <div class="section-head"><h2>Open X 1 TiB 扩展流水线</h2><p class="section-note">最新一轮官方 RLDS 数据下载、MD5 校验、同预算长尾分配模型训练和 PT 重尾分配计划生成，共用一份实时账本。这里的“生成”不代表新 RLDS 轨迹或传感器样本。</p></div>
+          <div class="status-banner ${complete ? "ok" : "warn"}">
+            <strong>${esc(expansionStageLabel(x.stage))}</strong>
+            <div class="note">状态 ${esc(generated.label)} · 本轮 ${fmt(selection.selected_gib, 3)} GiB · ${esc(selection.dataset_count)} 个完整数据集 · ${esc(selection.object_count)} 个官方对象</div>
+          </div>
+          <div class="grid4" style="margin-top:12px">
+            ${metric("本轮下载", `${fmt(download.progress_gib, 2)} / ${fmt(selection.selected_gib, 2)} GiB`, `${fmt(progressPercent, 3)}% · ${esc(download.completed_objects)} / ${esc(selection.object_count)} objects · ${fmt(download.transfer_rate_mib_s, 2)} MiB/s · ETA ${duration(download.eta_seconds)}`)}
+            ${metric("官方 MD5 门禁", esc(verification.status || "waiting"), `${esc(verification.md5_verified_objects || 0)} / ${esc(verification.expected_objects || selection.object_count)} verified · ${fmt(verification.md5_progress_percent, 2)}% · ${fmt((verification.md5_verified_bytes || 0) / 2 ** 30, 2)} GiB · 剩余 ${esc(verification.missing_count ?? "-")} objects`)}
+            ${metric("模型训练", esc(training.status || (trainingRunning ? "running" : "waiting")), optimizer.phase ? `${esc(optimizer.phase)} · ${esc(optimizer.step || 0)} / ${esc(optimizer.steps_target || 20000)} · 总更新 ${esc(optimizer.overall_completed_updates || 0)} / ${esc(optimizer.overall_target_updates || 40000)} · ${optimizer.resumed ? "已续跑" : "新启动"}` : training.steps ? `${esc(training.steps)} optimizer steps` : "下载与 MD5 完成后自动开始 Source 20,000 + Q-Tail 20,000 步")}
+            ${metric("长尾分配计划", esc(synthesisRunning ? "running" : synthesis.status || "waiting"), synthesis.status === "complete" ? `allocation winner ${esc(syntheticEffect.decision?.winner || "-")}` : synthesis.status === "running" ? `${esc(synthesis.phase || "allocating")} · ${duration(synthesis.elapsed_seconds)}` : "训练完成后生成分配与场景规格")}
+          </div>
+          <div class="bar"><span style="width:${progressPercent}%"></span></div>
+          <div class="grid4" style="margin-top:12px">
+            ${metric("UniClashCore", runtime.uniclash_core_running ? "ON" : "OFF", `TUN ${runtime.uniclash_tun_enabled ? "ON" : "OFF"} · guard ${esc(runtime.guard_status || "-")}`)}
+            ${metric("下载路由", route.status === "passed" ? "DIRECT PASS" : esc(route.status || "waiting"), `${esc(observation.interface || route.expected_interface || "-")} · ${esc(observation.gateway || "-")} · curl interface bound ${route.curl_interface_bound ? "yes" : "no"}`)}
+            ${metric("ORICO 容量", `${fmt(x.disk?.free_tib, 3)} TiB 当前`, `下载完预计 ${fmt(x.disk?.projected_free_after_download_tib, 3)} TiB · 硬保留线上净余 ${fmt(x.disk?.projected_headroom_after_download_gib, 2)} GiB · ${x.disk?.projected_capacity_passed ? "PASS" : "FAIL"}`)}
+            ${metric("完成后 Open X 规模", `${fmt(completedScaleGib, 2)} GiB`, `既有 171.62 GiB + 本轮 ${fmt(selection.selected_gib, 2)} GiB`)}
+          </div>
+          <div class="grid4" style="margin-top:12px">
+            ${metric("活动传输", `${esc(download.active_transfers || 0)} / ${esc(download.worker_count || 0)} workers`, `失败 ${esc(download.failed_objects || 0)} · 停滞 ${fmt(download.transport_stalled_seconds, 0)}s`)}
+            ${metric("特征预热", `${esc(prewarm.cached_objects || 0)} / ${esc(prewarm.verified_objects || 0)}`, `${esc(prewarm.status || "waiting")} · 全量 ${esc(prewarm.cached_objects || 0)} / ${esc(prewarm.expected_objects || 0)} · 解析 ${esc(prewarm.parsed_objects || 0)} · 失败 ${esc(prewarm.failed_objects || 0)} · 监督 ${(runtime.prewarm_loop || []).length} · 当前解析 ${(runtime.prewarmer || []).length}`)}
+            ${metric("训练进程", esc((runtime.trainer || []).length), training.status || "waiting")}
+            ${metric("合成进程", esc((runtime.synthesizer || []).length), synthesis.status || "waiting")}
+            ${metric("跨重启监督", supervision.loaded && supervision.plist_sha256_match ? "PASS" : "WAIT", `launchd loaded · interval ${esc(supervision.interval_seconds || "-")}s · runs ${esc(supervision.runs ?? "-")} · idle between checks`)}
+            ${metric("页面服务", webPage.http_status === 200 ? "HTTP 200" : "WAIT", `${esc(webPage.status || "waiting")} · 54655 · launchd 自动拉起`)}
+            ${metric("阶段哈希链", stageMarkers.synthesis?.valid ? "SEALED" : "BUILDING", `下载 ${stageMarkers.download?.valid ? "PASS" : "WAIT"} → 训练 ${stageMarkers.training?.valid ? "PASS" : "WAIT"} → 合成 ${stageMarkers.synthesis?.valid ? "PASS" : "WAIT"}`)}
+            ${metric("最终页面投影", finalPageQa.valid ? "PASS" : "WAIT", finalPageQa.valid ? "页面、状态 JSON 与 7 个交付物均 HTTP 200 · SHA MATCH" : esc(finalPageQa.error || "等待合成完成"))}
+            ${metric("原始样本生成器", "NOT TRAINED", "不能生成新图像、动作或 RLDS 轨迹；需要领域生成器 / renderer")}
+          </div>
+          <div class="grid2" style="margin-top:12px">
+            <article class="card">
+              <div class="label">自动执行顺序</div>
+              <div class="timeline">
+                <div class="step"><strong>${esc(gate("download", "run").status.toUpperCase())} · 下载</strong><span>${esc(download.worker_count || 0)} workers，断点续传，强制 en1 物理网卡直连 · ${esc(gate("download").evidence)}</span></div>
+                <div class="step"><strong>${esc(gate("prewarm", "wait").status.toUpperCase())} · 特征预热</strong><span>只读取已通过官方 MD5 的完整 shard；正式训练前强制 ${esc(prewarm.expected_objects || 0)} / ${esc(prewarm.expected_objects || 0)}、失败 0 · ${esc(gate("prewarm").evidence)}</span></div>
+                <div class="step"><strong>${esc(gate("md5", "run").status.toUpperCase())} · 校验</strong><span>3,126 个对象逐一核对官方大小与 MD5 · ${esc(gate("md5").evidence)}</span></div>
+                <div class="step"><strong>${esc(gate("training", "wait").status.toUpperCase())} · 训练</strong><span>完整文件门禁通过后执行 20,000-step Source / Q-Tail allocation-head 训练 · ${esc(gate("training").evidence)}</span></div>
+                <div class="step"><strong>${esc(gate("synthesis", "wait").status.toUpperCase())} · 分配计划</strong><span>用新 checkpoint 生成 100,000 条预算的 PT 重尾分配、场景规格、报告与 zip；不包含新原始轨迹 · ${esc(gate("synthesis").evidence)}</span></div>
+              </div>
+            </article>
+            <article class="card">
+              <div class="label">本轮选定数据集</div>
+              ${expansionDatasetTable(selection.dataset_progress || selection.datasets || [])}
+            </article>
+          </div>
+          <div class="section-head" style="margin-top:18px"><h2>下载后自动交接预演</h2><p class="section-note">使用真实 Open X shard 对缓存训练、checkpoint、长尾合成和包验证做同命令链路的有界工程演练；它证明自动交接可运行，不替代最终 1 TiB、20,000 步正式结果。</p></div>
+          <div class="status-banner ${preflight.status === "pass" ? "ok" : "warn"}">
+            <strong>${preflight.status === "pass" ? "PASS · 自动交接链路已验证" : "WAIT · 自动交接证据不完整"}</strong>
+            <div class="note">${esc(preflight.claim_boundary || "等待预演账本")}</div>
+          </div>
+          <div class="grid4" style="margin-top:12px">
+            ${metric("缓存训练入口", `${esc(preflight.cached_rows || 0)} cached + ${esc(preflight.fresh_rows || 0)} fresh`, `${esc(preflight.shards || 0)} shards · ${esc(preflight.steps || 0)} steps · parse ${pct(preflight.record_parse_rate)}`)}
+            ${metric("Checkpoint", preflight.checkpoint_sha256_match && preflight.resume_checkpoints === 2 ? "SHA + RESUME PASS" : "WAIT", `training runtime ${esc(preflight.training_runtime_status || "-")} · ${esc(preflight.optimizer_updates || 0)} / ${esc(preflight.optimizer_updates_target || 0)} updates · ${esc(preflight.resume_checkpoints || 0)} / 2 resume checkpoints · rc ${esc(preflight.training_returncode ?? "-")}`)}
+            ${metric("长尾分配验收", preflight.validation_valid ? "VALID" : "WAIT", `winner ${esc(preflight.winner || "-")} · runtime ${esc(preflight.synthesis_runtime_status || "-")} · rc ${esc(preflight.synthesis_returncode ?? "-")}`)}
+            ${metric("交付物", `${esc(preflight.artifacts_passed || 0)} / ${esc(preflight.artifacts_total || 7)}`, "报告、计划、合成 CSV、模型卡、审计、README、ZIP")}
+          </div>
+          <div class="actions">
+            ${artifactButton("预演训练报告", preflight.training_report)}
+            ${artifactButton("预演缓存审计", preflight.cache_usage)}
+            ${artifactButton("预演优化器进度", preflight.optimizer_progress)}
+            ${artifactButton("预演合成报告", preflight.delivery_report)}
+            ${artifactButton("预演交付包", preflight.package_zip)}
+          </div>
+          <div class="section-head" style="margin-top:18px"><h2>实时进度里程碑</h2><p class="section-note">保留最近的下载、MD5、特征缓存、速度与路由样本；阶段变化、明显字节或缓存增长、定时边界会写入新记录。</p></div>
+          ${expansionHistoryTable(history.recent || [])}
+          <div class="actions">${artifactButton(`查看全部 ${history.sample_count || 0} 条历史`, history.path)}</div>
+          <div class="grid4" style="margin-top:12px">
+            ${metric("训练 shards", esc(training.shard_count || "等待"), training.total_gib ? `${fmt(training.total_gib, 2)} GiB` : "完成下载后统计")}
+            ${metric("预测 tail gain", effect.predicted_tail_share_gain_pp == null ? "等待" : pp(effect.predicted_tail_share_gain_pp), "新 1 TiB 模型结果")}
+            ${metric("分配代理 tail success", syntheticEffect.tail_success_gain_pp == null ? "等待" : pp(syntheticEffect.tail_success_gain_pp), "分配计划上的代理评估，不是新轨迹实测")}
+            ${metric("分配 tail share", syntheticEffect.tail_data_share_gain_pp == null ? "等待" : pp(syntheticEffect.tail_data_share_gain_pp), "PT 重尾预算分配")}
+          </div>
+          <div class="section-head" style="margin-top:18px"><h2>本轮分配流水线完成审计</h2><p class="section-note">7/7 只证明清单、直连、MD5、allocation-head checkpoint、分配计划与公开投影闭环，不证明原始样本生成模型已经训练。</p></div>
+          <div class="status-banner ${completion.status === "complete" ? "ok" : "warn"}">
+            <strong>${esc(completion.passed || 0)} / ${esc(completion.total || 5)} 条件通过</strong>
+            <div class="note">${completion.status === "complete" ? "长尾分配流水线证据闭环；原始样本生成器仍为 NOT TRAINED" : "流水线继续运行，未完成条件保持 WAIT"}</div>
+          </div>
+          <div style="margin-top:12px">${expansionCompletionTable(completion.checks || [])}</div>
+          <div class="actions">
+            ${artifactButton("实时状态 JSON", "results/openx_1t_expansion/status.json", "primary")}
+            ${artifactButton("对象清单", "results/openx_1t_expansion/openx_1t_object_manifest.json")}
+            ${artifactButton("特征预热账本", prewarm.status_path)}
+            ${artifactButton("训练报告", training.status === "complete" ? training.report : "")}
+            ${artifactButton("长尾分配计划", synthesis.status === "complete" ? synthesis.synthetic_plan : "")}
+            ${artifactButton("下载交付包", synthesis.status === "complete" ? synthesis.package_zip : "")}
+            ${artifactButton("最终页面验收", finalPageQa.valid ? "results/openx_1t_expansion/final_page_qa.json" : "")}
+          </div>
+          <div class="card" style="margin-top:12px"><div class="label">新流水线日志</div><pre>${esc((x.logs?.pipeline_tail || []).join("\n") || "等待日志")}</pre></div>
+        </section>`;
+    };
     async function load() {
-      const res = await fetch("results/openx_training_progress/progress_manifest.json?ts=" + Date.now());
+      const stamp = Date.now();
+      const [res, expansion] = await Promise.all([
+        fetch("results/openx_training_progress/progress_manifest.json?ts=" + stamp),
+        fetch("results/openx_1t_expansion/status.json?ts=" + stamp, { cache: "no-store" })
+          .then((response) => response.ok ? response.json() : null)
+          .catch(() => null),
+      ]);
       const data = await res.json();
       const quick = data.training.quick_report || {};
       const fullDemo = data.training.full_demo_report || {};
@@ -208,24 +377,51 @@
       const evidenceLedger = data.evidence_ledger || [];
       const objectiveProgress = data.objective_progress || [];
       const gateDecisions = data.gate_decisions || [];
-      const progressHistory = data.progress_history?.rows || [];
+      const progressHistoryRows = data.progress_history?.rows || [];
       const submission = data.submission_summary || {};
       const headline = submission.headline_metrics || {};
+      const strongGateStatus = strongPipeline.download_gate_status
+        || (verification.ready_for_strong_training ? "ready" : "waiting");
+      const strongTrainingStatus = strongPipeline.training_status
+        || (strongPipeline.training_complete ? "complete" : verification.ready_for_strong_training ? "ready_to_start" : "waiting_for_gate");
+      const postStrongStatus = strongPipeline.post_acceptance_status
+        || postStrongAcceptance.status
+        || "waiting";
+      const freshness = snapshotFreshness(
+        data.generated_at,
+        Number(data.freshness_policy?.stale_after_seconds || 180),
+      );
+      const trainingComplete = strongTrainingStatus === "complete";
+      const strongFlowComplete = trainingComplete && postStrongStatus === "complete";
+      const progressHistory = trainingComplete
+        ? progressHistoryRows.filter((row) => row.strong_training_complete === true).slice(-1)
+        : progressHistoryRows;
       const strongProgress = Math.min(100, (Number(data.data.trainable_gib || data.data.total_gib || 0) / Number(data.data.target_strong_gib || 171.62)) * 100);
       app.innerHTML = `
+        ${expansionSection(expansion)}
         <section id="status">
-          <div class="section-head"><h2>当前状态</h2><p class="section-note">每分钟自动更新一次 manifest；页面会自动刷新读取最新快照。</p></div>
+          <div class="section-head"><h2>既有 171.62 GiB Strong 基线</h2><p class="section-note">以下是 7 月已完成的冻结基线，用于保留历史训练证据；本轮最新下载和后续训练请以上方 1 TiB 实时账本为准。</p></div>
+          <div class="status-banner ${freshness.stale ? "warn" : strongFlowComplete ? "ok" : "warn"}">
+            <strong>${esc(stageLabel(strongPipeline.current_stage || data.current_stage))}</strong>
+            <div class="note">Strong Download Gate = ${esc(strongGateStatus)} · Strong Allocation Training = ${esc(strongTrainingStatus)} · Post-Strong Acceptance = ${esc(postStrongStatus)} · Snapshot = ${esc(freshness.status)}</div>
+          </div>
+          <div class="grid4" style="margin-top:12px">
+            ${metric("Strong Download Gate", esc(strongGateStatus), verification.generated_at ? `verified ${esc(verification.generated_at)}` : "等待首次完整性校验")}
+            ${metric("Strong Allocation Training", esc(strongTrainingStatus), strongPipeline.training_completed_at || "与下载门禁分开计算")}
+            ${metric("Post-Strong Acceptance", esc(postStrongStatus), "Strong 客户样本与交付包验收")}
+            ${metric("快照新鲜度", esc(freshness.label), `stale after ${esc(data.freshness_policy?.stale_after_seconds || 180)}s`)}
+          </div>
           <div class="grid4">
             ${metric("已落盘 Open X", `${fmt(data.data.total_gib, 2)} GiB`, `${data.data.dataset_count} 个数据集 · 含下载中临时文件`)}
             ${metric("可训练完整文件", `${fmt(data.data.trainable_gib, 2)} GiB`, `自动刷新/增量训练只使用完整文件 · 目标 Strong ${fmt(data.data.target_strong_gib, 2)} GiB`)}
             ${metric("Demo 包", data.data.total_gib >= data.data.target_demo_gib ? "完成" : "进行中", `Demo 目标 ${fmt(data.data.target_demo_gib, 2)} GiB`)}
-            ${metric("Strong 包", `${fmt(strongProgress, 1)}%`, "language_table + language_table_sim 正在补齐")}
+            ${metric("Strong 数据包", trainingComplete ? "verified" : `${fmt(strongProgress, 1)}%`, trainingComplete ? "language_table + language_table_sim 已通过门禁" : "language_table + language_table_sim 正在补齐")}
           </div>
           <div class="bar"><span style="width:${strongProgress}%"></span></div>
           <div class="grid3" style="margin-top:12px">
             ${metric("页面更新时间", esc((data.generated_at_local || "-").replace("T", " ").slice(0, 19)), esc(data.timezone || "Asia/Shanghai"))}
             ${metric("Manifest UTC", esc((data.generated_at || "-").replace("T", " ").slice(0, 19)), "用于日志和后台任务对齐")}
-            ${metric("当前证据口径", data.training?.incremental_rows_quality?.clean ? "clean complete files" : "needs check", "训练 rows 排除 .gstmp/.tmp/.part")}
+            ${metric("当前证据口径", trainingComplete ? "Strong allocation-head" : data.training?.incremental_rows_quality?.clean ? "clean complete files" : "needs check", trainingComplete ? "20,000 steps · 完成标记 + 报告 + checkpoint 联合判定" : "训练 rows 排除 .gstmp/.tmp/.part")}
           </div>
         </section>
         <section id="objective">
@@ -251,9 +447,9 @@
             </article>
           </div>
           <div class="grid3" style="margin-top:12px">
-            ${metric("Strong 训练触发", esc(submission.next_trigger?.strong_training || "-"), `ready=${esc(submission.next_trigger?.strong_ready)}`)}
+            ${metric("Strong 训练状态", esc(submission.next_trigger?.strong_training_status || strongTrainingStatus), `gate=${esc(strongGateStatus)} · trigger=${esc(submission.next_trigger?.strong_training || "-")}`)}
             ${metric("增量刷新触发", esc(submission.next_trigger?.incremental_refresh || "-"), `还差 ${fmt(refreshPolicy.remaining_to_next_refresh_gib, 3)} GiB 或 ${esc(refreshPolicy.remaining_shards_to_next_refresh ?? "-")} shards`)}
-            ${metric("Strong 完成状态", submission.next_trigger?.strong_training_complete ? "complete" : "waiting", "完成后自动重建公开服务包")}
+            ${metric("Strong 完成状态", submission.next_trigger?.strong_training_complete ? "complete" : "waiting", submission.next_trigger?.strong_training_complete ? "报告、checkpoint、完成标记均已确认" : "完成后自动重建公开服务包")}
           </div>
           <div class="section-head" style="margin-top:18px"><h2>训练门禁决策</h2><p class="section-note">把当前为什么训练/不训练拆成可审计 gate，避免把 partial 下载字节误说成训练结果。</p></div>
           ${gateDecisionTable(gateDecisions)}
@@ -280,12 +476,12 @@
           </div>
         </section>
         <section>
-          <div class="section-head"><h2>下载健康与恢复</h2><p class="section-note">把活动进程、日志新鲜度、网络重试和训练守卫集中展示；网络抖动时，rsync 会继续恢复，训练仍由 require-ready 门禁控制。</p></div>
+          <div class="section-head"><h2>下载健康与恢复</h2><p class="section-note">${trainingComplete ? "Strong 下载已完成；保留历史进程、日志和恢复证据用于审计。" : "把活动进程、日志新鲜度、网络重试和训练守卫集中展示；网络抖动时，rsync 会继续恢复，训练仍由 require-ready 门禁控制。"}</p></div>
           <div class="grid4">
-            ${metric("健康状态", esc(health.state || "-"), health.process_alive ? "gsutil process alive" : "no active gsutil process")}
-            ${metric("活动 gsutil", esc(health.gsutil_process_count ?? "-"), `log ${health.log_fresh ? "fresh" : "stale"} · age ${fmt(health.log_age_seconds, 0)}s`)}
+            ${metric("健康状态", trainingComplete ? "download complete" : esc(health.state || "-"), trainingComplete ? "Strong 数据门禁已通过，不再要求活动下载进程" : health.process_alive ? "gsutil process alive" : "no active gsutil process")}
+            ${metric("活动 gsutil", trainingComplete ? "not required" : esc(health.gsutil_process_count ?? "-"), trainingComplete ? "下载进程停止是完成后的正常状态" : `log ${health.log_fresh ? "fresh" : "stale"} · age ${fmt(health.log_age_seconds, 0)}s`)}
             ${metric("网络重试", esc(health.retry_count_tail_window ?? "-"), `Connection refused ${esc(health.connection_refused_count_tail_window ?? "-")} · resumable ${esc(health.resumable_exception_count_tail_window ?? "-")}`)}
-            ${metric("训练守卫", health.wait_guard_ready ? "ready" : "waiting", `errors ${esc(health.wait_guard_error_count ?? "-")}`)}
+            ${metric("训练守卫", trainingComplete ? "completed" : health.wait_guard_ready ? "ready" : "waiting", `errors ${esc(health.wait_guard_error_count ?? "-")}`)}
           </div>
           <div class="grid4" style="margin-top:12px">
             ${metric("Watchdog", esc(watchdog.action || "waiting"), esc(watchdog.policy || "stale-only restart policy"))}
@@ -300,9 +496,9 @@
           </div>
           <div class="grid2" style="margin-top:12px">
             <article class="card"><div class="label">恢复策略</div><div class="note">${esc(health.recovery_policy || "-")}</div><div class="note">latest: ${esc(health.latest_progress_line || "-")}</div></article>
-            <article class="card"><div class="label">当前未放行原因</div><div class="note">${(health.wait_guard_errors || []).slice(0, 8).map((x) => `• ${esc(x)}`).join("<br>") || "等待下一次校验。"}</div></article>
+            <article class="card"><div class="label">当前未放行原因</div><div class="note">${trainingComplete ? "Strong allocation-head 流程已完成，无待放行项。" : (health.wait_guard_errors || []).slice(0, 8).map((x) => `• ${esc(x)}`).join("<br>") || "等待下一次校验。"}</div></article>
           </div>
-          <div class="section-head" style="margin-top:18px"><h2>Partial Shard 明细</h2><p class="section-note">这些文件证明下载仍在推进，但它们还是 .gstmp/.tmp/.part，必须等 gsutil 完成完整性校验并改名后才会进入训练。</p></div>
+          <div class="section-head" style="margin-top:18px"><h2>Partial Shard 明细</h2><p class="section-note">${trainingComplete ? "Strong 门禁通过时 partial 文件数为 0；此处保留排除策略和历史证据。" : "这些文件证明下载仍在推进，但它们还是 .gstmp/.tmp/.part，必须等 gsutil 完成完整性校验并改名后才会进入训练。"}</p></div>
           <div class="grid4" style="margin-bottom:12px">
             ${metric("Partial 文件", esc(partialDownloads.row_count ?? "-"), `${fmt(partialDownloads.total_gib, 3)} GiB 暂不计入训练`)}
             ${metric("最近活跃", esc(partialDownloads.active_recent_count ?? "-"), `latest ${esc((partialDownloads.latest_mtime_local || "-").replace("T", " ").slice(0, 19))}`)}
@@ -315,23 +511,23 @@
           ${watchdogHistoryTable(watchdogHistory.rows || [])}
         </section>
         <section>
-          <div class="section-head"><h2>Strong 训练门禁</h2><p class="section-note">最终 20000-step Strong 训练必须先通过数据完整性校验，避免网络中断后误把半截数据当最终结果。</p></div>
+          <div class="section-head"><h2>Strong 下载完整性门禁</h2><p class="section-note">这里仅表示数据是否允许进入训练，不表示训练本身是否完成。Strong 训练执行状态在下方独立展示。</p></div>
           <div class="grid3">
-            ${metric("门禁状态", verification.ready_for_strong_training ? "ready" : "not ready", verification.generated_at ? `checked ${esc(verification.generated_at)}` : "等待首次校验")}
+            ${metric("下载门禁状态", esc(strongGateStatus), verification.generated_at ? `checked ${esc(verification.generated_at)}` : "等待首次校验")}
             ${metric("错误数", esc((verification.errors || []).length), esc((verification.errors || []).slice(0, 3).join(" · ") || "无"))}
-            ${metric("训练触发", verification.ready_for_strong_training ? "允许" : "等待下载完成", "train_openx_strong_after_download 会先执行 require-ready 校验")}
+            ${metric("训练触发", trainingComplete ? "已执行" : verification.ready_for_strong_training ? "允许" : "等待下载完成", trainingComplete ? "门禁已通过，20,000-step Strong allocation-head 已完成" : "train_openx_strong_after_download 会先执行 require-ready 校验")}
           </div>
           <div style="margin-top:12px">${verificationTable(verification)}</div>
-          <div class="section-head" style="margin-top:18px"><h2>Strong 数据集完成度</h2><p class="section-note">按每个 Strong 数据集拆分 GiB、TFRecord 和 partial 文件缺口，说明最终训练为什么还没放行。</p></div>
+          <div class="section-head" style="margin-top:18px"><h2>Strong 数据集完成度</h2><p class="section-note">${strongGateStatus === "ready" ? "两个 Strong 数据集均已通过 GiB、TFRecord、元数据和 partial 文件校验。" : "按数据集拆分 GiB、TFRecord 和 partial 文件缺口，说明训练门禁为何尚未放行。"}</p></div>
           ${strongCompletionTable(strongCompletion)}
         </section>
         <section>
-          <div class="section-head"><h2>最终训练流水线</h2><p class="section-note">Strong 下载和校验完成后，等待器会自动跑最终训练，并把服务包和页面切换到 Strong 结果。</p></div>
+          <div class="section-head"><h2>Strong Allocation 训练流水线</h2><p class="section-note">${trainingComplete ? "Strong allocation-head 已完成；以下完成证据与后验收状态独立于下载门禁。" : "Strong 下载和校验完成后，等待器会自动跑最终训练，并把服务包和页面切换到 Strong 结果。"}</p></div>
           <div class="grid4">
-            ${metric("下载完成标记", strongPipeline.download_complete ? "yes" : "no", esc(strongPipeline.download_completed_at || "等待 Strong 下载完成"))}
-            ${metric("训练完成标记", strongPipeline.training_complete ? "yes" : "no", esc(strongPipeline.training_completed_at || "等待 20000-step Strong 训练"))}
-            ${metric("训练触发门禁", esc(strongPipeline.wait_policy || "verification gate"), esc(strongPipeline.guard_command || "require-ready verification"))}
-            ${metric("页面刷新", strongPipeline.training_complete ? "已刷新" : "已排队", "训练后自动运行 qtail_openx_progress_manifest.py")}
+            ${metric("下载门禁", esc(strongGateStatus), esc(strongPipeline.download_completed_at || "等待 Strong 下载完成"))}
+            ${metric("训练执行状态", esc(strongTrainingStatus), esc(strongPipeline.training_completed_at || "等待 20000-step Strong 训练"))}
+            ${metric("完成证据", strongPipeline.completion_evidence?.marker_exists && strongPipeline.completion_evidence?.checkpoint_exists ? "verified" : "incomplete", `report=${esc(strongPipeline.completion_evidence?.report_status || "-")} · steps=${esc(strongPipeline.completion_evidence?.report_steps || "-")} · checkpoint=${strongPipeline.completion_evidence?.checkpoint_exists ? "yes" : "no"} · marker=${strongPipeline.completion_evidence?.marker_exists ? "yes" : "no"}`)}
+            ${metric("页面状态源", esc(strongPipeline.current_stage || data.current_stage || "-"), "manifest 条件生成，不再固定为 downloading")}
           </div>
           <div class="timeline" style="margin-top:12px">
             ${(strongPipeline.post_training_actions || []).map((x, i) => `<div class="step"><strong>${i + 1}</strong><span>${esc(x)}</span></div>`).join("")}
@@ -375,12 +571,12 @@
           </div>
         </section>
         <section>
-          <div class="section-head"><h2>增量训练快照</h2><p class="section-note">Strong 包没下完前，定期用当前已落盘 Open X shard 训练一份短步数快照，展示真实进度。</p></div>
+          <div class="section-head"><h2>增量训练快照</h2><p class="section-note">${trainingComplete ? "Strong allocation-head 已完成；这里保留下载期间的增量快照，作为过程证据，不再代表当前主模型。" : "Strong 包没下完前，定期用当前已落盘 Open X shard 训练一份短步数快照，展示真实进度。"}</p></div>
           <div class="grid4">
             ${metric("Snapshot data", `${fmt(incremental.total_gib, 2)} GiB`, `${esc(incremental.shard_count || "-")} shards · ${esc((incremental.datasets || []).length)} datasets`)}
-            ${metric("Snapshot steps", esc(incremental.steps || "-"), "当前快照训练步数，最终 strong 训练会另行输出")}
+            ${metric("Snapshot steps", esc(incremental.steps || "-"), trainingComplete ? "历史增量快照；当前主结果为 20,000-step Strong" : "当前快照训练步数，最终 Strong 训练会另行输出")}
             ${metric("Snapshot tail gain", pp(incremental.effect_metrics?.predicted_tail_share_gain_pp), `source ${pct(incremental.effect_metrics?.source_pred_tail_share)} → qtail ${pct(incremental.effect_metrics?.qtail_pred_tail_share)}`)}
-            ${metric("Snapshot PT 一致性", incremental.effect_metrics?.consistent_with_pt_tail_goal ? "一致" : "待验证", "只作为下载期间的增量证据，不替代最终 strong result")}
+            ${metric("Snapshot PT 一致性", incremental.effect_metrics?.consistent_with_pt_tail_goal ? "一致" : "待验证", trainingComplete ? "历史过程证据；不替代已完成的 Strong result" : "只作为下载期间的增量证据，不替代最终 Strong result")}
           </div>
           <div class="grid4" style="margin-top:12px">
             ${metric("训练行质量", incrementalQuality.clean ? "clean" : "needs check", `${esc(incrementalQuality.row_count || 0)} rows · partial ${esc(incrementalQuality.partial_row_count ?? "-")}`)}
@@ -415,7 +611,7 @@
           ${evidenceTable(evidenceLedger)}
         </section>
         <section>
-          <div class="section-head"><h2>进度历史</h2><p class="section-note">最近 24 个非重复状态快照，展示下载、增量训练、刷新器和 Strong 门禁如何推进。</p></div>
+          <div class="section-head"><h2>当前完成快照</h2><p class="section-note">Strong 完成后只保留最新完成快照；历史 waiting / ready_to_start 记录已清理。</p></div>
           ${historyTable(progressHistory)}
         </section>
         <section id="delivery">
@@ -518,8 +714,8 @@ cloth_fold_corner,24,0.41,0.84,tail</textarea></label>
           <div class="section-head"><h2>服务模型设计</h2><p class="section-note">最终目标不是只做比赛报告，而是做“PT 重尾具身智能数据服务”。</p></div>
           <div class="grid4">
             ${metric("服务阶段", esc(serviceExecution.current_stage || "-"), esc(serviceExecution.next_milestone?.status || "-"))}
-            ${metric("已证明", esc((serviceExecution.proved_now || []).length), "真实 Open X 增量训练 + 服务包 + API")}
-            ${metric("未证明", esc((serviceExecution.not_proved_yet || []).length), "Strong final / full policy / trajectory renderer")}
+            ${metric("已证明", esc((serviceExecution.proved_now || []).length), trainingComplete ? "Strong allocation-head + 后验收 + 服务包 + API" : "真实 Open X 增量训练 + 服务包 + API")}
+            ${metric("未证明", esc((serviceExecution.not_proved_yet || []).length), trainingComplete ? "full policy / trajectory renderer" : "Strong final / full policy / trajectory renderer")}
             ${metric("下一里程碑", esc(serviceExecution.next_milestone?.trigger || "-"), esc(serviceExecution.next_milestone?.action || "-"))}
           </div>
           <div class="grid2" style="margin-top:12px">

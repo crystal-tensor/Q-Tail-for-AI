@@ -23,6 +23,15 @@ on held-out data. It does not measure end-to-end robot-policy success.
 Formal training remains closed until every official object passes the local
 MD5 ledger and the final `gsutil rsync -c` mirror check.
 
+`DROID_SOURCE_PROBED` is a structured, atomic marker with format
+`qtail_droid_source_probe_marker_v2`. It binds the official source URI, exact
+remote byte total, ORICO job root, capacity decision, source-probe report path,
+and report SHA-256. A valid retained report can be resealed with
+`qtail_probe_droid_source.py --seal-existing` without making another network
+request; the semantic marker verifier still checks all report bindings. This
+proves the retained source-probe evidence has not drifted. It does not replace
+the live capacity gate or independently re-query the bucket.
+
 The workspace keeps only external symbolic links for large or authoritative
 assets: `data/openx_demo`, `data/droid`, the official
 `droid_policy_learning` checkout, and `results/qtail_droid_full` all resolve
@@ -133,8 +142,11 @@ marker. Its `live_page_smoke.json` output records overflow, canvas, response,
 console, claim-boundary, intermediate-evidence, and 4/9 non-completion checks.
 This is ongoing UI evidence only; final 9/9 QA is rerun after formal training.
 The minute-level progress loop also runs `qtail_web_services.sh`. Each endpoint
-must have the expected `serve` command and the DROID page content marker, not
-merely an open port. An unhealthy project-owned screen is restarted, while a
+must have the expected `serve --symlinks` command and the DROID page content
+marker, not merely an open port. Symlink resolution is required because the
+served result tree intentionally exposes immutable marker files from the
+same ORICO job root; browser QA still requires every READY artifact URL to
+return HTTP 200. An unhealthy project-owned screen is restarted, while a
 foreign listener is logged and never terminated. Recovery events are retained
 in `/Volumes/ORICO/qtail_full_training/logs/qtail-web-services.log`.
 
@@ -177,10 +189,15 @@ Immediately before every final `gsutil rsync -r -c` attempt, the pipeline runs
 an independent launch gate against the live guard heartbeat. The gate requires
 UniClashCore to remain online, TUN to remain disabled, Google Storage system
 proxy bypass entries to be present, both `curl` and `gsutil` to be covered by
-the guard, a clean cumulative violation history, and every currently observed
-route to use `en1`. A stale or failed gate writes
+the guard, a transport-clean cumulative history, and every currently observed
+route to use `en1`. Gate v2 retains and accepts a historical Core-off heartbeat
+only when that event contains no DROID process or transfer violation and the
+entire epoch still has zero blocked PIDs, forbidden proxy sockets, and wrong
+routes. This represents an idle machine/reboot policy pause, not an inferred
+clean transfer; any Core-off event during a transfer remains a hard failure.
+A stale or failed gate writes
 `uniclash_pre_checksum_gate.json`, withholds `gsutil`, and retries after 30
-seconds without stopping UniClashCore or the resumable pipeline. Ten synthetic
+seconds without stopping UniClashCore or the resumable pipeline. Thirteen synthetic
 positive/destructive controls are sealed in
 `uniclash_pre_checksum_gate_selftest.json`. This launch assertion complements,
 and never replaces, continuous socket/route observation while `gsutil` runs.
@@ -224,8 +241,14 @@ objects, zero size mismatches, zero extra or partial files, and exactly
 3,700,745,265,151 official bytes. It also binds every local file's current
 size, APFS `mtime`/`ctime`, official MD5, locally observed MD5, and generation
 to the 4,102-entry checksum ledger. A structured checksum marker is accepted
-only after this verifier passes; every pipeline restart re-runs the binding
-check and invalidates a stale marker.
+only after this verifier passes. On restart, the fast path first verifies that
+the marker still hashes the prior successful byte-checksum report (official
+`gsutil rsync -c`, explicit local MD5 rehash, or both), then checks
+all 4,102 current file sizes and `mtime`/`ctime` values against the bound ledger
+in `droid_checksum_stat_continuity.json`. Any marker, report, path, size, or
+timestamp mismatch invalidates the fast path and falls back to a complete local
+MD5 rehash; unchanged data therefore keeps its prior byte-level proof without
+re-reading 3.7 TB solely because orchestration code changed.
 
 `DROID_CHECKSUM_VERIFIED` is written atomically only after it binds both the
 immutable download-completion marker and `download_verification.json` by path,
@@ -278,6 +301,17 @@ timestamp, shard count, and sorted shard-path SHA-256. A TFRecord whose MD5
 verification completes after that snapshot is reported as
 `deferred_after_snapshot` and is not counted as cached until the next prewarm
 pass; a pre-snapshot TFRecord without a listed cache remains a hard failure.
+The prewarm status distinguishes that snapshot scope explicitly. A successful
+pass below 4,096 official TFRecords is
+`prewarm_caught_up_current_snapshot`: every TFRecord complete at the pass
+snapshot was decoded and cached, but full DROID coverage is not claimed. Only
+an exact 4,096-shard snapshot with successful parse and scan coverage and both
+official releases at exactly 2,048 shards may use
+`prewarm_full_official_shard_snapshot_complete`; checksum and record closure
+remain separate mandatory formal-training gates.
+The six-case status-scope control artifact is rerun by the post-download
+pipeline. Final browser QA requires the exact six control names, `6/6`, and
+all-true results, then includes the artifact in the final SHA-256 manifest.
 Its status remains `passed_incremental` until all 4,102 objects, 4,096
 TFRecords, and 187,891 records close with zero deferred or missing shards; only
 then may `formal_full_mirror_gate` become true.
@@ -291,12 +325,17 @@ of replacing the completed payload. This is not an APFS immutable flag,
 external timestamp, or WORM guarantee. Legacy waiting placeholders formerly
 stored under the complete filename are atomically migrated to the progress
 filename without discarding their evidence.
-`droid_incremental_closure_selftest.json` runs a positive control plus
-destructive record-count, MD5-ledger, post-200-error MD5-ledger, and
-missing-cache controls, plus a controlled post-snapshot TFRecord. All four
-mutations must be rejected, while the post-snapshot object must be explicitly
-deferred without opening the formal gate; the post-200 case proves bounded
-error display cannot hide a later integrity failure. Because the downloader
+`droid_incremental_closure_selftest.json` runs seven exact controls: the
+positive current closure, an exact-full formal-mode rejection, destructive
+record-count, MD5-ledger, post-200-error MD5-ledger, and missing-cache
+controls, plus a controlled post-snapshot TFRecord. The formal rejection and
+post-snapshot controls share a frozen fixture in which exactly one otherwise
+valid TFRecord is deferred after the snapshot: ordinary incremental closure
+must pass, while `--require-formal` must reject it even when the live mirror is
+already complete. All four destructive mutations must be rejected, while the
+post-snapshot object must be explicitly deferred without opening the formal
+gate; the post-200 case proves bounded error display cannot hide a later
+integrity failure. Because the downloader
 can update its ledger while these controls run, the self-test first freezes one
 byte-identical snapshot of all four mutable input documents. The controlled
 deferral must increase that frozen snapshot's observed deferral count by
@@ -448,12 +487,19 @@ agreement with both the standalone artifact and the training report.
 
 ## Equal-compute contract
 
+The pinned official `droid_policy_learning` checkout is an immutable
+reproducibility reference and is not invoked by this AllocationHead
+experiment. The optimizer executions described below belong to the Q-Tail
+AllocationHead implementation in this repository. Training or evaluating a
+DROID robot policy with the official backend is a separate experiment and is
+required before making any robot-policy or environment-rollout claim.
+
 Both arms use:
 
 - `AllocationHead(10 -> 32 -> 16 -> 1)`;
 - AdamW, learning rate 0.002, weight decay 0.0001;
-- the same seed, device, runtime-environment fingerprint, features, parameter
-  count, and checkpoints;
+- the same seed, device, runtime-environment fingerprint, formal checkpoint-
+  environment fingerprint, features, parameter count, and checkpoints;
 - 20,000 evaluation-training steps;
 - 20,000 all-shard deployment-training steps;
 - 40,000 total steps per arm.
@@ -467,7 +513,7 @@ per-stage resume audit records the target step, completed optimizer-update
 count, training signature, and checkpoint boundary. A deterministic control
 also verifies that resuming a 7-update fixture from checkpoint 3 is
 bit-for-bit identical to an uninterrupted 7-update run. Checkpoints are
-written through a temporary file and atomic rename. Checkpoint format v5
+written through a temporary file and atomic rename. Checkpoint format v6
 recomputes content hashes for the complete model tensor tree and optimizer
 state tree and binds every later checkpoint to the previous checkpoint file
 SHA-256. Truncated, out-of-range, wrong-device, wrong-optimizer,
@@ -475,10 +521,14 @@ model-tensor-mutated, and optimizer-moment-mutated checkpoints are required
 negative controls.
 The runtime-environment contract hashes hardware model, CPU architecture,
 operating system, Python, PyTorch, MPS availability, and selected training
-device. That fingerprint is part of the training signature, every checkpoint,
-every resume audit, and the intermediate-checkpoint manifest. A checkpoint
-from the same nominal device but a different environment fingerprint is
-rejected.
+device. Checkpoint format v6 wraps that runtime contract with the SHA-256 of
+the formal environment manifest, the checked live-code aggregate, the atomic
+ORICO orchestration-snapshot manifest, and its code-parity result. The wrapped
+checkpoint-environment fingerprint is part of the training signature, every
+checkpoint, every resume audit, and the intermediate-checkpoint manifest. A
+checkpoint from the same machine and software runtime but a different formal
+code snapshot is rejected and training restarts at optimizer step 0. The
+protocol self-test exercises this exact negative control.
 The formal run must also produce an exact `4 x 5` checkpoint grid: evaluation
 Source, evaluation Q-Tail, deployment Source, and deployment Q-Tail at
 optimizer-update steps `0`, `5,000`, `10,000`, `15,000`, and `20,000`.
@@ -536,11 +586,14 @@ snapshot records its source, role, byte count, line count, and SHA-256. The
 seventh required log is `manual_endpoint_generation_handoff.log`, which binds
 the bounded endpoint/HTTP/worker controls and both production handoffs.
 The eighth is `qtail-web-services.log`, which records dual-port page
-supervision and recovery. When present, the same snapshot also retains seven
-non-gating supervision artifacts: the watchdog status, scheduled launcher
-log, both launcher stdout/stderr streams, both UniClash guard stdout/stderr
-streams, and the local web-service log. These optional histories are hashed
-and listed but cannot replace any of the eight required logs.
+supervision and recovery. The minute progress loop atomically mirrors six
+local supervision streams into `ORICO/qtail_full_training/logs/` so they do
+not depend on the workstation `.tmp` lifetime. Together with the watchdog
+status already written on ORICO, the same snapshot retains seven non-gating
+supervision artifacts: the watchdog status, scheduled launcher log, both
+launcher stdout/stderr streams, both UniClash guard stdout/stderr streams,
+and the local web-service log. These histories are hashed and listed but
+cannot replace any of the eight required logs.
 The final artifact gate requires the manifest and every required snapshot, while
 the original live logs remain available through `live_logs/` for
 post-completion supervision. The mutable `live_logs/` targets are explicitly
@@ -572,12 +625,20 @@ two-second sampling, `en1`, and `Wi-Fi` bindings. This verifies supervision
 configuration, not future electricity, network, or ORICO availability.
 
 Before the multi-terabyte mirror closes, a separate bounded engineering
-preflight streams real DROID TFRecords, runs Source and Q-Tail on MPS with the
-same architecture, AdamW configuration, seed, features, parameter count, and
-optimizer-update count, then reruns from all four terminal checkpoints. Its
-summary is `droid_preflight_training_smoke.json`. The preflight is explicitly
-test-only: a passed or failed tiny-sample hypothesis gate is excluded from the
-formal claim and can never create a training-complete marker.
+preflight selects four checksum-ledger-verified TFRecords from each official
+release, recomputes all eight local MD5 values against the official values, and
+decodes exactly two records per shard. It runs Source and Q-Tail on MPS with
+the same architecture, AdamW configuration, seed, features, parameter count,
+runtime-environment fingerprint, and 50 optimizer updates per arm. A second
+identical invocation must resume all four stages from step 25 without changing
+any of the 16 checkpoint-v6 parent-chain hashes. Its current-generation
+summary is `droid_preflight_training_smoke.json`; the unique run directory
+retains the frozen shard list, first/resume logs, first/final reports,
+checkpoints, and hashes. The trainer receives no marker directory, and the
+runner requires every formal marker to remain unchanged. The preflight is
+explicitly test-only: a passed or failed tiny-sample hypothesis gate is
+excluded from the formal claim and can never create a training-complete
+marker.
 
 An additional predictive engineering run freezes the first 908 fully scanned
 DROID 1.0.0 shards (40,686 records) and uses the formal 20,000-update
@@ -633,13 +694,42 @@ does not prove task-, scene-, collector-, or instruction-fingerprint-isolated
 generalization. That limitation is retained in the report and page claim
 boundary.
 
+## Technical and commercial decision boundary
+
+The live page keeps the technical and commercial interpretation mechanically
+coupled to the publishable formal outcome. Before the verified full mirror,
+record closure, same-compute execution, `DROID_TRAINING_COMPLETE`, final page
+QA, and the validated `DROID_PUBLIC_PROJECTION_COMMITTED` seal all pass, the
+section must remain `WITHHELD`, `waiting for formal decision`, and `no effect
+claim`. Training completion proves execution validity but is not publication
+authority. Forecast and scalability-canary values are never inputs to this
+state.
+
+After publication, the three preregistered outcomes map as follows:
+
+- `supported`: the allocation-head tail objective is supported and the system
+  may enter a bounded customer data-curation/allocation pilot;
+- `inconclusive`: the evidence remains uncertain and only an exploratory,
+  preregistered customer pilot is justified;
+- `not_supported`: the preregistered target is not supported and no uplift
+  sales claim is permitted.
+
+All three states retain the same boundary: the evidence concerns DROID
+AllocationHead budget redistribution, not robot-policy success, environment
+rollout, revenue, ROI, or deployment guarantees. The browser smoke verifier
+runs the live incomplete page on desktop and mobile and separately exercises
+all three formal mappings with presentation-only fixtures. The fixture scope
+is explicitly `presentation_logic_only_not_formal_training_evidence` and
+cannot create or satisfy any formal result or completion marker.
+
 `DROID_TRAINING_COMPLETE` is a structured, atomic marker rather than an empty
 sentinel. It binds the verified mirror, official two-release metadata audit,
 protocol controls, environment contract, independently recomputed
 4,096-shard cache, final report, model status, and checkpoint by exact path,
-byte count, and SHA-256. It also binds the v2 incremental closure, its 6/6
+byte count, and SHA-256. It also binds the v2 incremental closure, its 7/7
 controls, the two-release milestone status, and both immutable per-release
-milestone files. The semantic verifier requires environment controls 5/5,
+milestone files. The semantic verifier requires exact environment contract v3
+controls 9/9,
 zero deferred or missing TFRecords, and exact 4,102-object / 4,096-shard /
 187,891-record closure. Every pipeline start revalidates those bindings and
 the formal semantics; a stale or edited artifact invalidates the training
@@ -656,15 +746,17 @@ cannot satisfy a full-data completion gate. The manifest merger's 7/7
 positive and negative controls verify optional-history retention and hashing,
 missing-history pruning, required-set drift rejection, missing formal
 artifacts, symlink escape rejection, and path traversal rejection. Formal mode
-explicitly requires all 63 pre-page artifacts: 41 static artifacts, the full
+explicitly requires all 64 pre-page artifacts: 42 static artifacts, the full
 20-checkpoint grid, and two immutable release milestones. One missing file
 withholds the training marker.
 
 The static shell contract is versioned
-`droid_pipeline_shell_contract_v7`. Its nine controls cover the direct-route
+`droid_pipeline_shell_contract_v9`. Its eleven controls cover the direct-route
 download invocation, verified-mirror training gate, terminal event order,
 two-phase public projection, post-commit read-only QA, parent ownership, and
-the final process-log snapshot. It also parses the release-milestone command
+the final process-log snapshot. It additionally requires the snapshot-bound
+environment controls/capture and exactly one environment manifest on the
+formal trainer command. It also parses the release-milestone command
 block and requires the formal DROID data root to be supplied exactly once, so
 duplicated or ambiguous milestone inputs fail before the full run advances.
 
@@ -680,6 +772,24 @@ bound to the current pipeline PID and recreates it if missing. This makes the
 binding self-healing after a reboot or watchdog restart. Auto-launch is
 disabled after `DROID_DOWNLOAD_COMPLETE` exists, so checksum and training
 cannot enter a handoff restart loop.
+
+Every current-generation pipeline writes an atomic `PIPELINE_STARTED` marker
+with format `qtail_pipeline_started_marker_v2`. It binds the live pipeline PID,
+exact script path and SHA-256, ORICO job root, lock path, and lock-owner PID.
+Before checksum, environment capture, and formal training, the pipeline runs
+the same nine-check semantic generation gate and atomically records all three
+results in `pipeline_generation_gate.json`. The final gate must be
+`pre-formal-training`; all three gates must share one live PID and one script
+hash, and that hash must match both the marker and current source. A legacy
+pipeline may remain alive only during resumable download while a uniquely
+bound generation-handoff watcher is healthy. Formal training and final QA
+require `HASH MATCH`; a stale, empty, edited, or PID-mismatched marker exits
+before the irreversible stage so the watchdog can start the current source.
+The training-complete marker directly binds this generation report and its
+semantic verifier requires the ordered three-gate history, one PID, one
+current source hash, all nine checks per gate, and the exact pipeline command.
+Four destructive controls reject a false check, a missing gate, and
+post-gate source drift in addition to the positive three-gate case.
 
 ## Completion contract
 
@@ -745,20 +855,37 @@ repairs both the observed dead-loop failure mode and the later false restart
 mode where a healthy idle loop was killed every five minutes because no new
 feature-status row was expected while it slept.
 
-`droid_runtime_process_contract_selftest.json` supplies fourteen controlled
-checks: the valid download topology, missing and duplicate handoff watchers, a
-stale target PID, duplicate pipelines, an expired download heartbeat, the
-post-download topology where transfer-only processes must be absent, the
-positive scheduled-launcher plus watchdog self-healing source contract, and
-rejection after removing the ORICO mount guard, a required resume call, the
-download-marker guard, pipeline-PID binding, sidecar freshness check, recursive
-descendant cleanup, zsh-safe `target_path` variable, or exact Python-script
-process classification. Merely mentioning a guard or downloader path in a
+`droid_runtime_process_contract_selftest.json` supplies sixteen controlled
+checks. In addition to the valid and destructive topology, heartbeat, exact
+PID ownership, launcher, mount, cleanup, web-service, handoff-marker, and
+Python-script classification controls, v11 requires an atomic ORICO write
+probe before the scheduled launcher may stop or replace any worker. This
+rejects the observed macOS privacy-domain failure in which a LaunchAgent could
+see ORICO, kill a Terminal-owned prewarm loop, and then fail to write its own
+replacement. Version 11 also requires the exact symlink-enabled web command
+and rejects a mutation that removes `--symlinks`, preventing a healthy-looking
+page from publishing READY artifact links that return 404. The same v11 suite
+proves the post-download convergence order.
+The handoff must start the current watchdog before waiting for prewarm;
+the watchdog must start a missing current-generation pipeline; that pipeline
+must commit the checksum marker before waiting for prewarm; and prewarm must
+exit naturally on that marker. Four negative mutations remove each edge and
+must all be rejected. Merely mentioning a guard or downloader path in a
 diagnostic shell command is not a live process match. The production pipeline
 reruns these controls on every natural generation start, while live identity
 is evaluated from the real process table each minute. The independently loaded
 transport guard keeps UniClashCore online while terminating only DROID transfer
 processes that lose the explicit direct-route contract.
+
+The formal environment seal also treats the official training backend as an
+immutable input. It requires origin
+`https://github.com/droid-dataset/droid_policy_learning`, commit
+`9a29c832b4c81bf38401111f5e4cdddaca217581`, a clean tracked and untracked
+worktree, and a successful `git fsck`. Environment contract v3 runs nine
+black-box controls: the original positive, byte-mismatch, missing-MD5,
+UniClash-violation, transport-classifier, backend commit, origin, and untracked
+worktree controls, plus orchestration-snapshot code drift. Every mutation must
+fail before formal training can start.
 
 The live runtime projection also records the macOS AC `sleep` and `disksleep`
 values plus the `ExternalMedia` power assertion. Runtime health requires
@@ -840,10 +967,30 @@ An already-valid marker is returned byte-for-byte without refreshing its
 commit timestamp, so concurrent or resumed callers cannot reseal the same
 evidence as a new completion event.
 
-The marker hardening suite contains 26 controls. Eight terminal integration
-controls execute the actual lease and projection validators in a temporary job
-root: rejection without a bootstrap, rejection of an expired lease, rejection
-of a lease-owner mismatch, an honest 8/9 final-marker commit, the atomic 8-to-9
+`DROID_POSTCOMMIT_PAGE_QA_COMPLETE` binds seven paths by byte count and
+SHA-256: the committed final marker, committed public-projection marker, frozen
+`latest_final.json`, frozen `completion_audit_final.json`, the read-only browser
+QA report, and its desktop and mobile screenshots. These postcommit artifacts
+are deliberately outside the 64-file pre-page formal manifest. Requiring them
+before the public 9/9 projection would create a circular gate because their
+browser contract must first observe that committed 9/9 projection. The final
+stage validator requires both layers and rehashes the postcommit marker after
+the browser run, so the two-stage design does not weaken final evidence.
+
+The marker hardening suite contains 38 controls. Five controls independently
+enforce the exact seven-case incremental-closure contract: the canonical
+payload passes; a missing formal gate check, an extra check, a false check, or
+a formal rejection case spoofed as success must fail. Four pipeline-generation
+controls require the ordered pre-checksum, pre-environment, and
+pre-formal-training gates, and reject a false check, an incomplete gate
+history, or source drift. Two publication-boundary controls require an honest
+8/9 projection to keep formal values withheld and reject a training-only
+publication flag. One identity-contract control requires the canonical
+38-name set and rejects a missing, extra, or duplicate control. Eight terminal
+integration controls execute the actual
+lease and projection validators in a temporary job root: rejection
+without a bootstrap, rejection of an expired lease, rejection of a
+lease-owner mismatch, an honest 8/9 final-marker commit, the atomic 8-to-9
 dual-marker commit, byte identity between live and frozen projections,
 rejection of a modified frozen snapshot, and rejection of a modified final
 marker. Heavy mirror, model, manifest, continuity, and process-log semantics
@@ -864,22 +1011,40 @@ and admit that three-file family only after QA status is complete. Live
 explicit failed, error, invalid, blocked, unavailable, `valid=false`, or
 `passed=false` documents do not.
 
-Three artifact-count controls additionally prove that the 63-item pre-page
+Three artifact-count controls additionally prove that the 64-item pre-page
 formal baseline remains fixed while effective QA adds nine immutable process
 log artifacts (the manifest plus eight required logs) and committed QA adds
-five final browser/transport artifacts. The dynamic totals become 72 and 77
+five final browser/transport artifacts. The dynamic totals become 73 and 78
 without changing the reader-facing baseline.
+The public completion projection also carries the sorted, stable
+`required_artifacts` path set, not only the currently missing subset. The page
+renders every path in a formal artifact contract ledger as `SEALED`,
+`GENERATED`, or `WAIT`. Browser QA requires exact row/count agreement, unique
+relative links, all 20 checkpoint paths, and the checksum-handoff,
+pre-environment, and pre-training gates at both desktop and 390-pixel mobile
+widths. Every `GENERATED` or `SEALED` ledger link must also return HTTP 200;
+`WAIT` paths remain unrequested until their owning stage creates them. This
+keeps the full contract visible after sealing reduces the missing list to zero.
 The fifteenth control also proves that the ORICO snapshot manifest accepts an
 identical workspace source, rejects source-content drift, and rejects a
 source-relative path that escapes the workspace. Snapshot self-consistency
 alone therefore cannot satisfy the migration requirement.
 
 The 9-control shell contract also names every pipeline-owned producer needed
-for the 41 static formal artifacts: manifest/checksum builders, release audit,
+for the 42 static formal artifacts: manifest/checksum builders, release audit,
 timeline/protocol/environment controls, the all-record trainer, cache and
 closure verifiers, release milestone sealer, artifact merger, transport gates,
 and destructive self-tests. Removing a producer therefore withholds execution
 before the irreversible training or final-publication transitions.
+
+Formal optimizer startup has a three-stage code-generation binding. The
+pipeline start marker binds the running shell PID, lock owner, and shell hash;
+environment capture requires every critical workspace hash to equal the
+atomically published ORICO orchestration snapshot; and the trainer re-hashes
+the complete environment inventory plus snapshot manifest before verified
+mirror parsing or any optimizer update. The 11/11 gate-order suite rejects
+misordering and live code drift, and the training/final judges repeat the
+binding through publication.
 
 These SHA-256 bindings prove internal consistency against the retained files;
 they are not an external timestamp, transparency log, or WORM guarantee. An
@@ -916,9 +1081,11 @@ optimizer, seed, features, parameter count, device, and runtime fingerprint.
 
 All four stages resumed from step 1,000 without rejection. The 20 intermediate
 checkpoint hashes, parent chains, and final model hash remained byte-identical
-after same-source replay. Nine shard-list controls pass, including rejection of
-duplicates, unsorted membership, digest tampering, traversal, external
-symlinks, partial downloads, and `--max-shards` conflicts.
+after same-source replay. Eleven shard-list controls pass, including rejection
+of duplicates, unsorted membership, digest tampering, traversal, external
+symlinks, partial downloads, and `--max-shards` conflicts, plus positive
+controls that a frozen list preserves its record cap while an unbounded mirror
+scan forces all-record mode.
 
 The held-out allocation diagnostic is +14.23 percentage points
 (32.76% to 47.00%; conditional bootstrap interval +12.76 to +15.40 pp), and
@@ -947,6 +1114,7 @@ python3 tools/qtail_train_droid_full.py \
   --transport-status /Volumes/ORICO/qtail_full_training/results/qtail_droid_full/parallel_download_status.json \
   --download-marker /Volumes/ORICO/qtail_full_training/markers/DROID_DOWNLOAD_COMPLETE \
   --download-verification /Volumes/ORICO/qtail_full_training/results/qtail_droid_full/download_verification.json \
+  --environment-manifest /Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_environment_manifest.json \
   --require-verified-mirror \
   --required-mount /Volumes/ORICO \
   --records-per-shard 0 \

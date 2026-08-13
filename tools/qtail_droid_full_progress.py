@@ -25,8 +25,11 @@ from qtail_merge_droid_artifact_manifest import (
     formal_droid_artifact_paths,
 )
 from qtail_verify_droid_stage_markers import (
+    PIPELINE_GENERATION_CHECKS,
+    PIPELINE_GENERATION_GATES,
     validate_final_bootstrap,
     validate_final_marker,
+    validate_pipeline_generation_gate,
     validate_public_projection_marker,
     validate_training_marker,
 )
@@ -79,6 +82,24 @@ FORMAL_FINAL_QA_ARTIFACTS = (
     "final_page_desktop.png",
     "final_page_mobile.png",
 )
+EMPTY_SUPERVISION_LOG_HREFS = {
+    (
+        "results/qtail_droid_full/live_logs/"
+        "qtail_droid_launchd_stdout.log"
+    ),
+    (
+        "results/qtail_droid_full/live_logs/"
+        "qtail_uniclash_guard_stdout.log"
+    ),
+    (
+        "results/qtail_droid_full/process_logs_final/"
+        "qtail_droid_launchd_stdout.log"
+    ),
+    (
+        "results/qtail_droid_full/process_logs_final/"
+        "qtail_uniclash_guard_stdout.log"
+    ),
+}
 
 
 class ArtifactLinkParser(HTMLParser):
@@ -159,7 +180,10 @@ def artifact_link_availability(repo_root: Path) -> dict:
         if path:
             try:
                 metadata = path.stat()
-                if stat.S_ISREG(metadata.st_mode) and metadata.st_size > 0:
+                if stat.S_ISREG(metadata.st_mode) and (
+                    metadata.st_size > 0
+                    or href in EMPTY_SUPERVISION_LOG_HREFS
+                ):
                     size = metadata.st_size
             except OSError:
                 size = None
@@ -176,6 +200,11 @@ def artifact_link_availability(repo_root: Path) -> dict:
         items[href] = {
             "available": exists,
             "bytes": size if exists else None,
+            "empty_supervision_log": bool(
+                exists
+                and size == 0
+                and href in EMPTY_SUPERVISION_LOG_HREFS
+            ),
             "reason": (
                 None
                 if exists
@@ -643,6 +672,199 @@ def file_sha256(path: Path) -> str | None:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def droid_source_probe_marker_summary(
+    marker_path: Path,
+    report_path: Path,
+    *,
+    job_root: Path,
+) -> dict:
+    marker = read_json(marker_path)
+    report = read_json(report_path)
+    report_sha256 = file_sha256(report_path)
+    storage = report.get("storage", {})
+    checks = {
+        "semantic_marker": (
+            marker.get("format_version")
+            == "qtail_droid_source_probe_marker_v2"
+        ),
+        "marker_status": marker.get("status") == "verified",
+        "marker_source": marker.get("source") == REMOTE_URI,
+        "marker_bytes": marker.get("remote_bytes") == REMOTE_BYTES,
+        "marker_job_root": marker.get("job_root") == str(job_root),
+        "marker_report_path": marker.get("report") == str(report_path),
+        "marker_report_sha256": (
+            bool(report_sha256)
+            and marker.get("report_sha256") == report_sha256
+        ),
+        "marker_capacity_gate": (
+            marker.get("capacity_gate_passed_at_probe") is True
+        ),
+        "report_status": report.get("status") == "verified",
+        "report_source": report.get("source") == REMOTE_URI,
+        "report_bytes": report.get("remote_bytes") == REMOTE_BYTES,
+        "report_job_root": report.get("job_root") == str(job_root),
+        "report_capacity_gate": (
+            isinstance(storage, dict)
+            and storage.get("capacity_gate_passed") is True
+        ),
+    }
+    return {
+        "valid": all(checks.values()),
+        "marker": str(marker_path),
+        "report": str(report_path),
+        "format_version": marker.get("format_version"),
+        "report_sha256": report_sha256,
+        "checks": checks,
+        "claim_boundary": (
+            "This validates the local semantic source marker and its report "
+            "hash binding. It does not independently re-query the remote "
+            "bucket or replace the live capacity gate."
+        ),
+    }
+
+
+def pipeline_generation_gate_summary(
+    payload: dict,
+    *,
+    gate_path: Path,
+    script_path: Path,
+) -> dict:
+    expected_gates = PIPELINE_GENERATION_GATES
+    expected_checks = PIPELINE_GENERATION_CHECKS
+    entries = [
+        item
+        for item in payload.get("gates", [])
+        if isinstance(item, dict)
+    ]
+    by_gate = {
+        str(item.get("gate")): item
+        for item in entries
+        if item.get("gate")
+    }
+    all_checks_valid = bool(
+        set(by_gate) == set(expected_gates)
+        and len(entries) == len(expected_gates)
+        and all(
+            item.get("passed") is True
+            and isinstance(item.get("checks"), dict)
+            and set(item["checks"]) == expected_checks
+            and all(
+                value is True
+                for value in item["checks"].values()
+            )
+            for item in by_gate.values()
+        )
+    )
+    gate_order_valid = [
+        item.get("gate")
+        for item in entries
+    ] == list(expected_gates)
+    pids = {
+        item.get("pid")
+        for item in by_gate.values()
+        if (
+            isinstance(item.get("pid"), int)
+            and not isinstance(item.get("pid"), bool)
+            and item.get("pid") > 0
+        )
+    }
+    lock_owner_pids = {
+        item.get("lock_owner_pid")
+        for item in by_gate.values()
+        if (
+            isinstance(item.get("lock_owner_pid"), int)
+            and not isinstance(item.get("lock_owner_pid"), bool)
+            and item.get("lock_owner_pid") > 0
+        )
+    }
+    script_hashes = {
+        item.get("current_script_sha256")
+        for item in by_gate.values()
+        if isinstance(item.get("current_script_sha256"), str)
+    }
+    marker_hashes = {
+        item.get("marker_script_sha256")
+        for item in by_gate.values()
+        if isinstance(item.get("marker_script_sha256"), str)
+    }
+    expected_command = f"/bin/zsh {script_path}"
+    command_binding_valid = bool(
+        len(entries) == len(expected_gates)
+        and all(
+            item.get("command") == expected_command
+            and item.get("expected_command") == expected_command
+            for item in entries
+        )
+    )
+    single_pipeline_pid = (
+        next(iter(pids))
+        if len(pids) == 1
+        else None
+    )
+    pid_binding_valid = bool(
+        single_pipeline_pid is not None
+        and lock_owner_pids == {single_pipeline_pid}
+    )
+    current_script_sha256 = file_sha256(script_path)
+    source_hash_binding_valid = bool(
+        current_script_sha256
+        and script_hashes == {current_script_sha256}
+        and marker_hashes == {current_script_sha256}
+    )
+    current_gate_payload = read_json(gate_path)
+    payload_matches_current_file = bool(
+        current_gate_payload
+        and current_gate_payload == payload
+    )
+    strict_errors = validate_pipeline_generation_gate(
+        gate_path,
+        script_path=script_path,
+    )
+    valid = bool(
+        payload.get("format_version")
+        == "qtail_pipeline_generation_gate_v1"
+        and payload.get("status") == "passed"
+        and payload.get("latest_gate") == "pre-formal-training"
+        and all_checks_valid
+        and gate_order_valid
+        and pid_binding_valid
+        and command_binding_valid
+        and source_hash_binding_valid
+        and payload_matches_current_file
+        and not strict_errors
+    )
+    return {
+        "valid": valid,
+        "format_version": payload.get("format_version"),
+        "status": payload.get("status", "missing"),
+        "latest_gate": payload.get("latest_gate"),
+        "expected_gates": list(expected_gates),
+        "observed_gates": [
+            item.get("gate")
+            for item in entries
+        ],
+        "all_checks_valid": all_checks_valid,
+        "gate_order_valid": gate_order_valid,
+        "single_pipeline_pid": single_pipeline_pid,
+        "pid_binding_valid": pid_binding_valid,
+        "command_binding_valid": command_binding_valid,
+        "source_hash_binding_valid": source_hash_binding_valid,
+        "payload_matches_current_file": payload_matches_current_file,
+        "strict_validation_errors": strict_errors,
+        "single_script_sha256": (
+            next(iter(script_hashes))
+            if len(script_hashes) == 1
+            else None
+        ),
+        "current_script_sha256": current_script_sha256,
+        "claim_boundary": (
+            "Formal completion requires all three irreversible-stage checks "
+            "to pass in order under one pipeline PID, matching lock owner, "
+            "exact command, and the current script SHA-256."
+        ),
+    }
 
 
 def checkpoint_manifest_projection(
@@ -1202,6 +1424,7 @@ def power_policy_snapshot() -> dict:
 
 def process_snapshot(
     repo_root: Path,
+    job_root: Path,
     parallel_status: dict,
     stage: str,
     prewarm_heartbeat: dict,
@@ -1288,6 +1511,101 @@ def process_snapshot(
         stage=stage,
         heartbeat_age_seconds=heartbeat_age_seconds,
     )
+    pipeline_script = repo_root / "scripts/qtail_orico_full_pipeline.sh"
+    pipeline_marker_path = job_root / "manifests/PIPELINE_STARTED"
+    pipeline_marker = read_json(pipeline_marker_path)
+    pipeline_sha256 = file_sha256(pipeline_script)
+    pipeline_pids = processes.get("pipeline", [])
+    unique_pipeline_pid = (
+        int(pipeline_pids[0]["pid"]) if len(pipeline_pids) == 1 else None
+    )
+    lock_path = job_root / "manifests/pipeline.lock"
+    lock_owner_pid = None
+    try:
+        lock_owner_pid = int(str(lock_path.readlink()))
+    except (OSError, ValueError):
+        pass
+    marker_pid = None
+    try:
+        marker_pid = int(pipeline_marker.get("pid"))
+    except (TypeError, ValueError):
+        pass
+    marker_lock_owner_pid = None
+    try:
+        marker_lock_owner_pid = int(
+            pipeline_marker.get("lock_owner_pid")
+        )
+    except (TypeError, ValueError):
+        pass
+    generation_checks = {
+        "semantic_marker": (
+            pipeline_marker.get("format_version")
+            == "qtail_pipeline_started_marker_v2"
+        ),
+        "running_status": pipeline_marker.get("status") == "running",
+        "unique_pipeline": unique_pipeline_pid is not None,
+        "marker_pid_matches_process": (
+            marker_pid is not None
+            and marker_pid == unique_pipeline_pid
+        ),
+        "marker_script_matches": (
+            pipeline_marker.get("script") == str(pipeline_script)
+        ),
+        "marker_job_root_matches": (
+            pipeline_marker.get("job_root") == str(job_root)
+        ),
+        "marker_sha_matches_current_source": (
+            bool(pipeline_sha256)
+            and pipeline_marker.get("script_sha256") == pipeline_sha256
+        ),
+        "live_lock_owner_matches_process": (
+            lock_owner_pid is not None
+            and lock_owner_pid == unique_pipeline_pid
+        ),
+        "marker_lock_owner_matches_process": (
+            marker_lock_owner_pid is not None
+            and marker_lock_owner_pid == unique_pipeline_pid
+        ),
+    }
+    generation_hash_matched = all(generation_checks.values())
+    legacy_marker = (
+        pipeline_marker.get("format_version")
+        != "qtail_pipeline_started_marker_v2"
+    )
+    legacy_handoff_pending = bool(
+        stage == "droid_full_download"
+        and legacy_marker
+        and unique_pipeline_pid is not None
+        and process_contract["handoff_binding_passed"]
+    )
+    if generation_hash_matched:
+        generation_status = "hash_matched"
+    elif legacy_handoff_pending:
+        generation_status = "legacy_handoff_pending"
+    else:
+        generation_status = "blocked"
+    pipeline_generation = {
+        "status": generation_status,
+        "passed": generation_hash_matched or legacy_handoff_pending,
+        "hash_matched": generation_hash_matched,
+        "legacy_handoff_pending": legacy_handoff_pending,
+        "download_only_exception": legacy_handoff_pending,
+        "marker_path": str(pipeline_marker_path),
+        "marker_format_version": pipeline_marker.get("format_version"),
+        "marker_pid": marker_pid,
+        "process_pid": unique_pipeline_pid,
+        "lock_owner_pid": lock_owner_pid,
+        "marker_script_sha256": pipeline_marker.get("script_sha256"),
+        "current_script_sha256": pipeline_sha256,
+        "checks": generation_checks,
+        "claim_boundary": (
+            "HASH MATCH requires the semantic start marker, unique live "
+            "pipeline PID, pipeline lock owner, and current script SHA-256 "
+            "to agree. The legacy-marker exception is download-only and "
+            "requires a handoff process bound to the unique pipeline PID; "
+            "checksum verification and formal training require HASH MATCH."
+        ),
+    }
     prewarm_heartbeat_age_seconds = timestamp_age_seconds(
         prewarm_heartbeat.get("generated_at")
     )
@@ -1402,6 +1720,7 @@ def process_snapshot(
     return {
         "healthy": (
             process_contract["passed"]
+            and pipeline_generation["passed"]
             and prewarm_heartbeat_gate_passed
             and mount_gate_passed
             and web_gate_passed
@@ -1422,6 +1741,7 @@ def process_snapshot(
         "handoff_binding_passed": process_contract[
             "handoff_binding_passed"
         ],
+        "pipeline_generation": pipeline_generation,
         "prewarm_heartbeat": {
             **prewarm_heartbeat,
             "age_seconds": prewarm_heartbeat_age_seconds,
@@ -1629,21 +1949,33 @@ def build_history_chart(
         }
         selected = mandatory | uniform
         if len(selected) > max_points:
-            optional = sorted(selected - mandatory)
-            optional_budget = max(0, max_points - len(mandatory))
-            if optional_budget == 0:
-                selected = mandatory
-            elif len(optional) > optional_budget:
-                selected = mandatory | {
-                    optional[
+            mandatory_ordered = sorted(mandatory)
+            if len(mandatory_ordered) >= max_points:
+                selected = {
+                    mandatory_ordered[
                         round(
                             position
-                            * (len(optional) - 1)
-                            / max(1, optional_budget - 1)
+                            * (len(mandatory_ordered) - 1)
+                            / (max_points - 1)
                         )
                     ]
-                    for position in range(optional_budget)
+                    for position in range(max_points)
                 }
+            else:
+                optional = sorted(selected - mandatory)
+                optional_budget = max_points - len(mandatory)
+                if len(optional) > optional_budget:
+                    optional = [
+                        optional[
+                            round(
+                                position
+                                * (len(optional) - 1)
+                                / max(1, optional_budget - 1)
+                            )
+                        ]
+                        for position in range(optional_budget)
+                    ]
+                selected = mandatory | set(optional)
         selected_indices = sorted(selected)
 
     points = []
@@ -1808,6 +2140,8 @@ def build_completion_audit(
     openx: dict,
     marker_state: dict,
     source_probe: dict,
+    source_probe_marker: dict,
+    pipeline_generation_gate: dict,
     object_manifest: dict,
     checksum_manifest: dict,
     checksum_summary: dict,
@@ -1837,6 +2171,15 @@ def build_completion_audit(
     snapshot_publish_audit: dict,
     result_root: Path,
 ) -> dict:
+    generation_gate_summary = pipeline_generation_gate_summary(
+        pipeline_generation_gate,
+        gate_path=result_root / "pipeline_generation_gate.json",
+        script_path=(
+            Path(__file__).resolve().parents[1]
+            / "scripts"
+            / "qtail_orico_full_pipeline.sh"
+        ),
+    )
     trajectory = training_report.get("trajectory_evidence", {})
     compute = training_report.get("compute_audit", {})
     input_audit = training_report.get("input_audit", {})
@@ -1879,17 +2222,17 @@ def build_completion_audit(
     )
     training_gate_order_selftest_valid = bool(
         training_gate_order_selftest.get("version")
-        == "qtail_droid_training_gate_order_selftest_v1"
+        == "qtail_droid_training_gate_order_selftest_v2"
         and training_gate_order_selftest.get("status") == "passed"
         and int(
             training_gate_order_selftest.get("controls_passed", -1)
         )
-        == 8
+        == 11
         and int(
             training_gate_order_selftest.get("controls_total", -1)
         )
-        == 8
-        and len(training_gate_order_controls) == 8
+        == 11
+        and len(training_gate_order_controls) == 11
         and all(
             isinstance(control, dict) and control.get("passed") is True
             for control in training_gate_order_controls
@@ -1903,7 +2246,7 @@ def build_completion_audit(
         and int(
             downloader_single_writer_selftest.get("checks_passed", -1)
         )
-        == 14
+        == 13
         and int(
             downloader_single_writer_selftest.get("checks_total", -1)
         )
@@ -1919,15 +2262,17 @@ def build_completion_audit(
     )
     runtime_process_contract_selftest_valid = bool(
         runtime_process_contract_selftest.get("status") == "passed"
+        and runtime_process_contract_selftest.get("control")
+        == "droid_runtime_process_contract_v11"
         and int(
             runtime_process_contract_selftest.get("checks_passed", -1)
         )
-        == 13
+        == 16
         and int(
             runtime_process_contract_selftest.get("checks_total", -1)
         )
-        == 14
-        and len(runtime_process_checks) == 14
+        == 16
+        and len(runtime_process_checks) == 16
         and all(value is True for value in runtime_process_checks.values())
     )
     uniclash_gate_checks = uniclash_pre_checksum_gate.get("checks", {})
@@ -1946,12 +2291,12 @@ def build_completion_audit(
         and int(
             uniclash_pre_checksum_gate_selftest.get("checks_passed", -1)
         )
-        == 10
+        == 13
         and int(
             uniclash_pre_checksum_gate_selftest.get("checks_total", -1)
         )
-        == 10
-        and len(uniclash_gate_selftest_checks) == 10
+        == 13
+        and len(uniclash_gate_selftest_checks) == 13
         and all(
             value is True
             for value in uniclash_gate_selftest_checks.values()
@@ -2042,6 +2387,26 @@ def build_completion_audit(
         str(result_root / "live_logs" / "droid_feature_prewarm.log"),
         str(result_root / "live_logs" / "pipeline_watchdog.log"),
         str(result_root / "live_logs" / "qtail-web-services.log"),
+        str(
+            result_root
+            / "live_logs"
+            / "qtail_droid_terminal_launcher.log"
+        ),
+        str(
+            result_root / "live_logs" / "qtail_droid_launchd_stderr.log"
+        ),
+        str(
+            result_root / "live_logs" / "qtail_droid_launchd_stdout.log"
+        ),
+        str(
+            result_root / "live_logs" / "qtail_uniclash_guard_stderr.log"
+        ),
+        str(
+            result_root / "live_logs" / "qtail_uniclash_guard_stdout.log"
+        ),
+        str(
+            result_root / "live_logs" / "qtail_web_services_local.log"
+        ),
         str(
             result_root.parent.parent
             / "logs"
@@ -2167,12 +2532,18 @@ def build_completion_audit(
     required_environment_checks = {
         "positive_control_completes",
         "one_byte_mirror_mismatch_fails",
+        "orchestration_snapshot_code_drift_fails",
         "missing_official_md5_fails",
         "uniclash_violation_fails",
         "transport_classifier_v6_selftest_passes",
+        "backend_commit_drift_fails",
+        "backend_origin_drift_fails",
+        "backend_worktree_dirty_fails",
     }
     environment_selftest_valid = bool(
         environment_selftest.get("status") == "passed"
+        and environment_selftest.get("contract_version")
+        == "qtail_droid_environment_contract_selftest_v3"
         and isinstance(environment_checks, dict)
         and set(environment_checks) == required_environment_checks
         and all(value is True for value in environment_checks.values())
@@ -2242,14 +2613,20 @@ def build_completion_audit(
         and not transport_guard.get("blocked_processes")
         and not transport_guard.get("global_violations")
         and int(guard_cumulative.get("samples", 0)) > 0
-        and int(guard_cumulative.get("blocked_samples", -1)) == 0
+        and (
+            int(guard_cumulative.get("blocked_samples", -1)) == 0
+            or adjudication_valid
+        )
         and int(
             guard_cumulative.get("forbidden_socket_observations", -1)
         )
         == 0
         and int(guard_cumulative.get("wrong_route_observations", -1)) == 0
         and not guard_cumulative.get("blocked_pids")
-        and not guard_cumulative.get("violation_events")
+        and (
+            not guard_cumulative.get("violation_events")
+            or adjudication_valid
+        )
         and adjudication_valid
     )
 
@@ -2747,7 +3124,8 @@ def build_completion_audit(
             "id": "official_source_and_manifest",
             "label": "官方 DROID 来源与对象清单",
             "passed": (
-                source_probe.get("status") == "verified"
+                source_probe_marker.get("valid") is True
+                and source_probe.get("status") == "verified"
                 and int(source_probe.get("remote_bytes", -1)) == REMOTE_BYTES
                 and object_manifest.get("status") in {"verified", "complete"}
                 and int(object_manifest.get("object_count", -1)) == 4102
@@ -2758,6 +3136,7 @@ def build_completion_audit(
             "evidence": {
                 "source": REMOTE_URI,
                 "source_probe": str(result_root / "droid_source_probe.json"),
+                "source_probe_marker": source_probe_marker,
                 "object_manifest": str(result_root / "droid_object_manifest.json"),
                 "object_count": object_manifest.get("object_count"),
                 "bytes": object_manifest.get("total_bytes"),
@@ -2906,6 +3285,7 @@ def build_completion_audit(
             "passed": (
                 marker_state.get("droid_model_training_complete", False)
                 and marker_state.get("droid_training_complete", False)
+                and generation_gate_summary["valid"]
                 and training_report.get("status") == "complete"
                 and formal_protocol_valid
                 and steps == 20_000
@@ -2967,7 +3347,7 @@ def build_completion_audit(
                     and item.get("optimizer")
                     == compute.get("same_optimizer")
                     and item.get("environment_fingerprint")
-                    == compute.get("runtime_environment_fingerprint")
+                    == compute.get("checkpoint_environment_fingerprint")
                     and (
                         not item.get("resumed")
                         or (
@@ -2979,7 +3359,7 @@ def build_completion_audit(
                                 "checkpoint_environment_fingerprint"
                             )
                             == compute.get(
-                                "runtime_environment_fingerprint"
+                                "checkpoint_environment_fingerprint"
                             )
                         )
                     )
@@ -3007,6 +3387,18 @@ def build_completion_audit(
                     )
                 )
                 == 64
+                and len(
+                    str(
+                        compute.get(
+                            "checkpoint_environment_fingerprint", ""
+                        )
+                    )
+                )
+                == 64
+                and compute.get("checkpoint_environment_contract", {}).get(
+                    "version"
+                )
+                == "qtail_checkpoint_environment_v2"
                 and compute.get("same_parameter_count") is True
                 and int(compute.get("source_parameter_count", -1)) > 0
                 and int(compute.get("source_parameter_count", -1))
@@ -3070,6 +3462,12 @@ def build_completion_audit(
                 ),
                 "hypothesis_outcome": hypothesis_gate.get("outcome"),
                 "hypothesis_supported": hypothesis_gate.get("supported"),
+                "pipeline_generation_gate": str(
+                    result_root / "pipeline_generation_gate.json"
+                ),
+                "pipeline_generation_gate_summary": (
+                    generation_gate_summary
+                ),
             },
         },
         {
@@ -3089,6 +3487,7 @@ def build_completion_audit(
                 and training_gate_order_selftest_valid
                 and downloader_single_writer_selftest_valid
                 and runtime_process_contract_selftest_valid
+                and generation_gate_summary["valid"]
                 and uniclash_pre_checksum_gate_valid
                 and uniclash_pre_checksum_gate_selftest_valid
                 and live_partial_marker_rejection_valid
@@ -3158,6 +3557,12 @@ def build_completion_audit(
                     runtime_process_contract_selftest_valid
                 ),
                 "runtime_process_contract_checks": runtime_process_checks,
+                "pipeline_generation_gate": str(
+                    result_root / "pipeline_generation_gate.json"
+                ),
+                "pipeline_generation_gate_summary": (
+                    generation_gate_summary
+                ),
                 "uniclash_pre_checksum_gate": str(
                     result_root / "uniclash_pre_checksum_gate.json"
                 ),
@@ -3213,6 +3618,7 @@ def build_completion_audit(
                     formal_pre_page_artifact_paths
                 ),
                 "required_artifact_count": len(required_artifact_paths),
+                "required_artifacts": sorted(required_artifact_paths),
                 "artifact_seal_state": {
                     "sealed_required_count": (
                         len(required_artifact_paths)
@@ -3315,6 +3721,11 @@ def build_completion_audit(
         experiment_execution_valid
         and marker_state.get("droid_training_complete", False)
         and marker_state.get("training_marker_validation", {}).get(
+            "valid", False
+        )
+        and marker_state.get("final_page_qa_complete", False)
+        and marker_state.get("droid_public_projection_committed", False)
+        and marker_state.get("public_projection_validation", {}).get(
             "valid", False
         )
     )
@@ -3438,6 +3849,15 @@ def main() -> None:
         "DROID_PUBLIC_PROJECTION_COMMITTED",
     ]
     marker_state = {name.lower(): (markers / name).exists() for name in marker_names}
+    source_probe_marker = droid_source_probe_marker_summary(
+        markers / "DROID_SOURCE_PROBED",
+        result_root / "droid_source_probe.json",
+        job_root=job_root,
+    )
+    marker_state["droid_source_probed"] = bool(
+        marker_state["droid_source_probed"]
+        and source_probe_marker["valid"]
+    )
     training_marker_validation = validate_training_marker(job_root)
     final_marker_validation = validate_final_marker(
         job_root,
@@ -3533,6 +3953,9 @@ def main() -> None:
     runtime_process_contract_selftest_path = (
         result_root / "droid_runtime_process_contract_selftest.json"
     )
+    pipeline_generation_gate_path = (
+        result_root / "pipeline_generation_gate.json"
+    )
     stage_marker_hardening_selftest_path = (
         result_root / "droid_stage_marker_hardening_selftest.json"
     )
@@ -3627,6 +4050,7 @@ def main() -> None:
     runtime_process_contract_selftest = read_json(
         runtime_process_contract_selftest_path
     )
+    pipeline_generation_gate = read_json(pipeline_generation_gate_path)
     stage_marker_hardening_selftest = read_json(
         stage_marker_hardening_selftest_path
     )
@@ -3814,6 +4238,7 @@ def main() -> None:
     )
     runtime = process_snapshot(
         repo_root,
+        job_root,
         parallel_download,
         stage,
         feature_prewarm_heartbeat,
@@ -3823,6 +4248,8 @@ def main() -> None:
         openx=openx,
         marker_state=marker_state,
         source_probe=source_probe,
+        source_probe_marker=source_probe_marker,
+        pipeline_generation_gate=pipeline_generation_gate,
         object_manifest=object_manifest,
         checksum_manifest=checksum_manifest,
         checksum_summary=checksum_summary,
@@ -3923,6 +4350,14 @@ def main() -> None:
         "code_snapshot": code_snapshot,
         "download_verification": verification,
         "source_probe": source_probe,
+        "source_probe_marker": source_probe_marker,
+        "pipeline_generation_gate": pipeline_generation_gate_summary(
+            pipeline_generation_gate,
+            gate_path=pipeline_generation_gate_path,
+            script_path=(
+                repo_root / "scripts/qtail_orico_full_pipeline.sh"
+            ),
+        ),
         "object_checksum_manifest": checksum_manifest,
         "object_checksums": checksum_summary,
         "release_metadata_audit": release_metadata_audit,

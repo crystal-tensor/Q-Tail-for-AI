@@ -1,0 +1,122 @@
+{
+  "generated_at": "2026-08-12T04:15:21.109644+00:00",
+  "service_status": "implemented_demo_delivery",
+  "input_csv": "/Users/avalok/work/Q-TAIL-MVP/data/customer_semifinal_embodied_tasks.csv",
+  "output_dir": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis",
+  "model_card": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis/qtail_service_model_card.json",
+  "synthetic_plan": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis/qtail_service_synthetic_plan.csv",
+  "customer_package": {
+    "generated_at": "2026-08-12T04:15:21.108602+00:00",
+    "package_type": "qtail_data_engine_evaluation_package",
+    "input_csv": "/Users/avalok/work/Q-TAIL-MVP/data/customer_semifinal_embodied_tasks.csv",
+    "output_dir": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis",
+    "report": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis/qtail_data_engine_report.json",
+    "synthetic_data": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis/qtail_synthetic_data.csv",
+    "task_profiles": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis/task_profiles.csv",
+    "per_task_comparison": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis/per_task_comparison.csv",
+    "winner": "qtail_synthetic",
+    "test_passed": true,
+    "same_budget_audit": {
+      "same_task_set": true,
+      "same_total_budget": 100000.0,
+      "source_allocation_sum": 1.0,
+      "synthetic_allocation_sum": 1.0,
+      "allocation_sum_tolerance": 1e-06,
+      "allocation_sums_valid": true,
+      "same_response_model": "response_success_v1",
+      "same_tail_definition": "top_30_percent_by_tail_score",
+      "same_metric_set": [
+        "overall_success",
+        "tail_success",
+        "cvar20",
+        "extreme_failure_count",
+        "tail_coverage_at_50",
+        "tail_data_share"
+      ],
+      "profile_count": 10
+    },
+    "validation": {
+      "report_path": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis/qtail_data_engine_report.json",
+      "valid": true,
+      "errors": [],
+      "winner": "qtail_synthetic",
+      "test_passed": true,
+      "profile_count": 10
+    },
+    "manifest": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis/package_manifest.json"
+  },
+  "service_steps": [
+    {
+      "step": "1. Ingest customer embodied data",
+      "status": "complete",
+      "artifact": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis/task_profiles.csv"
+    },
+    {
+      "step": "2. Score rarity/risk/tail profile",
+      "status": "complete",
+      "artifact": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis/task_profiles.csv"
+    },
+    {
+      "step": "3. Apply Open X trained PT-tail prior",
+      "status": "complete",
+      "artifact": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis/qtail_service_model_card.json"
+    },
+    {
+      "step": "4. Generate synthetic allocation/spec plan",
+      "status": "complete",
+      "artifact": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis/qtail_service_synthetic_plan.csv"
+    },
+    {
+      "step": "5. Same-budget source vs Q-Tail audit",
+      "status": "complete",
+      "artifact": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis/qtail_data_engine_report.json"
+    },
+    {
+      "step": "6. Full policy training handoff",
+      "status": "pending_full_policy_stack",
+      "artifact": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/training/openx_demo_training_report.json"
+    }
+  ],
+  "effect_summary": {
+    "source_tail_success": 0.35637238304098234,
+    "qtail_tail_success": 0.7069627810447741,
+    "tail_success_gain_pp": 35.059039800379175,
+    "tail_success_relative_gain_pct": 98.3775440207089,
+    "source_cvar20": 0.31097794433931253,
+    "qtail_cvar20": 0.7061853806589642,
+    "cvar20_gain_pp": 39.52074363196517,
+    "source_tail_data_share": 0.020090978013646704,
+    "qtail_tail_data_share": 0.38995214910155307,
+    "tail_data_share_gain_pp": 36.98611710879064,
+    "extreme_failure_reduction": 2,
+    "decision": {
+      "winner": "qtail_synthetic",
+      "passed": true,
+      "summary": "Q-Tail synthetic data wins under the same-budget evaluation protocol.",
+      "primary_metric": "tail_success",
+      "decision_gate": {
+        "tail_success_min_gain": 0.02,
+        "cvar20_min_gain": 0.02,
+        "tail_data_share_min_gain": 0.1,
+        "p_delta_le_0_max": 0.05
+      },
+      "reasons": [
+        "tail_success_gain=0.350590",
+        "cvar20_gain=0.395207",
+        "tail_data_share_gain=0.369861",
+        "paired_bootstrap_p_delta_le_0_within_gate",
+        "same_budget_audit_passed"
+      ]
+    },
+    "aligned_with_pt_tail_goal": true
+  },
+  "business_use": [
+    "Customer sends a task/trajectory summary CSV or RLDS export summary.",
+    "Q-Tail scores rare, risky, or under-covered tasks.",
+    "The Open X calibrated prior shifts generation budget toward tail tasks while preserving a source-data floor.",
+    "The customer receives a synthetic data plan and audit package before expensive robot-policy retraining."
+  ],
+  "delivery_report": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis/qtail_service_delivery_report.json",
+  "readme": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis/README_QTAIL_DELIVERY.md",
+  "package_zip": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis/qtail_delivery_package.zip"
+}

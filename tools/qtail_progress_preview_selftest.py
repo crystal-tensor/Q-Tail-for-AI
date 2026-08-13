@@ -123,6 +123,12 @@ def main() -> None:
             "\n".join(
                 [
                     '<a class="artifact" href="passed.json">passed</a>',
+                    (
+                        '<a class="artifact" href="results/qtail_droid_full/'
+                        'live_logs/qtail_droid_launchd_stdout.log">'
+                        "empty-supervision</a>"
+                    ),
+                    '<a class="artifact" href="ordinary-empty.log">empty</a>',
                     '<a class="artifact" href="failed.json">failed</a>',
                     '<a class="artifact" href="corrupt.json">corrupt</a>',
                     (
@@ -156,6 +162,14 @@ def main() -> None:
             artifact_root / "passed.json",
             {"status": "passed"},
         )
+        empty_supervision_href = (
+            "results/qtail_droid_full/live_logs/"
+            "qtail_droid_launchd_stdout.log"
+        )
+        empty_supervision_path = artifact_root / empty_supervision_href
+        empty_supervision_path.parent.mkdir(parents=True)
+        empty_supervision_path.write_bytes(b"")
+        artifact_root.joinpath("ordinary-empty.log").write_bytes(b"")
         atomic_write_json(
             artifact_root / "failed.json",
             {"status": "failed"},
@@ -273,10 +287,10 @@ def main() -> None:
             ),
         },
         {
-            "name": "formal_pre_page_artifact_baseline_is_63",
+            "name": "formal_pre_page_artifact_baseline_is_64",
             "passed": (
-                len(baseline_artifact_contract["baseline"]) == 63
-                and len(baseline_artifact_contract["required"]) == 63
+                len(baseline_artifact_contract["baseline"]) == 64
+                and len(baseline_artifact_contract["required"]) == 64
             ),
         },
         {
@@ -285,7 +299,7 @@ def main() -> None:
                 effective_artifact_contract["baseline"]
                 == baseline_artifact_contract["baseline"]
                 and len(effective_artifact_contract["process_logs"]) == 9
-                and len(effective_artifact_contract["required"]) == 72
+                and len(effective_artifact_contract["required"]) == 73
             ),
         },
         {
@@ -296,7 +310,7 @@ def main() -> None:
                 complete_artifact_contract["baseline"]
                 == baseline_artifact_contract["baseline"]
                 and len(complete_artifact_contract["final_qa"]) == 5
-                and len(complete_artifact_contract["required"]) == 77
+                and len(complete_artifact_contract["required"]) == 78
             ),
         },
         {
@@ -314,7 +328,16 @@ def main() -> None:
         },
         {
             "name": "passed_json_artifact_is_ready",
-            "passed": failed_items["passed.json"]["available"] is True,
+            "passed": (
+                failed_items["passed.json"]["available"] is True
+                and failed_items[empty_supervision_href]["available"] is True
+                and failed_items[empty_supervision_href]["bytes"] == 0
+                and failed_items[empty_supervision_href][
+                    "empty_supervision_log"
+                ]
+                is True
+                and failed_items["ordinary-empty.log"]["available"] is False
+            ),
         },
         {
             "name": "failed_corrupt_and_false_json_semantics_are_withheld",

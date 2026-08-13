@@ -1,0 +1,9 @@
+task,count,success_rate,difficulty,group
+pick_common_cup,4200,0.94,0.18,head
+place_common_cup,3300,0.91,0.22,head
+open_standard_drawer,1700,0.82,0.36,medium
+close_standard_drawer,900,0.78,0.42,medium
+pick_slippery_object,180,0.51,0.78,tail
+recover_dropped_object,80,0.33,0.91,tail
+open_jammed_drawer,35,0.21,0.96,tail
+handover_fragile_object,12,0.17,0.98,tail

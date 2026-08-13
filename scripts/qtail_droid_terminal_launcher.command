@@ -17,6 +17,7 @@ PREWARM_STATUS="$JOB_ROOT/results/qtail_droid_full/droid_feature_prewarm_status.
 PREWARM_ACTIVE_STATUS="$JOB_ROOT/results/qtail_droid_full/droid_feature_extraction_status.json"
 PREWARM_HEARTBEAT="$JOB_ROOT/results/qtail_droid_full/droid_feature_prewarm_heartbeat.json"
 DATA_ROOT="$JOB_ROOT/data/droid"
+ORICO_WRITE_PROBE="$JOB_ROOT/.qtail-launcher-write-probe.$$"
 WEB_SUPERVISOR_COMMAND="/bin/zsh $WEB_SERVICES"
 WEB_SUPERVISOR_SESSION="qtail-web-supervisor"
 
@@ -24,6 +25,27 @@ mkdir -p "$ROOT/.tmp"
 
 if ! /sbin/mount | /usr/bin/grep -Fq " on /Volumes/ORICO ("; then
   printf '[%s] ORICO is not mounted; scheduled supervisor will retry\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$LOCAL_LOG"
+  exit 0
+fi
+
+probe_orico_write_access() {
+  local probe_path="$ORICO_WRITE_PROBE"
+
+  if ! {
+    umask 077
+    printf '%s\n' "$$" > "$probe_path" \
+      && rm -f "$probe_path"
+  } 2>/dev/null; then
+    rm -f "$probe_path" >/dev/null 2>&1 || true
+    return 1
+  fi
+}
+
+# A scheduled LaunchAgent can see an external volume while macOS privacy still
+# denies writes. It must not kill Terminal-owned workers it cannot replace.
+if ! probe_orico_write_access; then
+  printf '[%s] ORICO write access unavailable; refusing to supervise or replace workers\n' \
     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$LOCAL_LOG"
   exit 0
 fi

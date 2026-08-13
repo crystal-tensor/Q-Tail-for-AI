@@ -1,0 +1,17 @@
+{
+  "format_version": "qtail_openx_optimizer_progress_v1",
+  "generated_at": "2026-08-12T04:15:16.920870+00:00",
+  "status": "phase_complete",
+  "phase": "qtail",
+  "step": 20000,
+  "steps_target": 20000,
+  "overall_completed_updates": 40000,
+  "overall_target_updates": 40000,
+  "resumed": false,
+  "checkpoint_interval": 1000,
+  "checkpoint_path": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/training/resume_checkpoints/qtail.pt",
+  "elapsed_seconds": 42.6,
+  "kl": 3.991471021436155e-05,
+  "feature_sha256": "884cf06d18fc3653ce445dff41ac8462db70f557974c44170c123b26a2fbdd6b",
+  "target_sha256": "fe9380f83abef04cb4cd2b8929a0658fd434817051153758fbee7dec8547778e"
+}

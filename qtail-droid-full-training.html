@@ -55,7 +55,7 @@
     .label { color: var(--muted); font-size: 11px; text-transform: uppercase; }
     .value { margin-top: 9px; font-size: 26px; font-weight: 800; }
     .note { margin-top: 7px; color: var(--muted); font-size: 11px; line-height: 1.45; }
-    .section { padding: 42px 0; border-bottom: 1px solid var(--line); }
+    .section { padding: 42px 0; border-bottom: 1px solid var(--line); scroll-margin-top: 68px; }
     .section-head { display: grid; grid-template-columns: minmax(0, .85fr) minmax(280px, 1.15fr); gap: 48px; align-items: end; margin-bottom: 22px; }
     h2 { margin: 8px 0 0; font-size: 30px; line-height: 1.18; }
     .section-note { color: var(--muted); font-size: 13px; line-height: 1.65; }
@@ -113,6 +113,12 @@
     .coverage-table tr:last-child td { border-bottom: 0; }
     .coverage-gain-positive { color: var(--green); }
     .coverage-gain-negative { color: var(--red); }
+    .value-grid { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); background: var(--panel); }
+    .value-item { min-height: 154px; padding: 18px; }
+    .value-item + .value-item { border-left: 1px solid var(--line); }
+    .value-item .value { font-size: 22px; overflow-wrap: anywhere; }
+    .value-item p { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.65; }
+    .value-boundary { margin-top: 14px; padding: 13px 15px; border-left: 3px solid var(--cyan); background: #071317; color: #b9cbd1; font-size: 12px; line-height: 1.65; }
     figure { margin: 0; border: 1px solid var(--line); background: var(--panel); }
     figure img { display: block; width: 100%; height: 300px; object-fit: contain; background: #fff; }
     figcaption { padding: 11px 13px; color: var(--muted); font-size: 11px; line-height: 1.55; }
@@ -125,6 +131,18 @@
     .artifact.waiting i { color: #71858e; }
     .artifact-state { margin-left: auto; color: var(--green); font-size: 10px; font-weight: 800; }
     .artifact.waiting .artifact-state { color: var(--amber); }
+    .formal-ledger { margin-top: 18px; border-top: 1px solid var(--line); }
+    .formal-ledger-head { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; padding: 16px 0 12px; }
+    .formal-ledger-head strong { font-size: 14px; }
+    .formal-ledger-head span { color: var(--muted); font-size: 11px; text-align: right; }
+    .formal-artifact-ledger { border: 1px solid var(--line); background: var(--panel); }
+    .formal-artifact-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 12px; align-items: center; min-height: 48px; padding: 9px 13px; }
+    .formal-artifact-row + .formal-artifact-row { border-top: 1px solid var(--line); }
+    .formal-artifact-index { color: #5f727a; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .formal-artifact-link { min-width: 0; color: #b9cbd1; font: 10px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+    .formal-artifact-state { min-width: 78px; padding: 5px 7px; border: 1px solid var(--line); color: var(--amber); text-align: center; font-size: 9px; font-weight: 800; }
+    .formal-artifact-row.generated .formal-artifact-state { border-color: #66542f; color: var(--amber); }
+    .formal-artifact-row.sealed .formal-artifact-state { border-color: #305d40; color: var(--green); }
     .completion-shell { border: 1px solid var(--line); background: var(--panel); }
     .completion-summary { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; padding: 18px; border-bottom: 1px solid var(--line); }
     .completion-summary strong { font-size: 24px; }
@@ -159,13 +177,15 @@
       .transport-grid { grid-template-columns: 1fr 1fr; }
       .transport-item + .transport-item { border-left: 0; border-top: 1px solid var(--line); }
       .transport-item:nth-child(even) { border-left: 1px solid var(--line); }
+      .value-grid { grid-template-columns: 1fr; }
+      .value-item + .value-item { border-left: 0; border-top: 1px solid var(--line); }
     }
     @media (max-width: 600px) {
       .container { width: min(calc(100% - 24px), var(--max)); }
       .brand-copy small { display: none; }
       h1 { font-size: 31px; }
       .overview, .section { padding: 32px 0; }
-      .metrics, .audit-grid, .result-grid, .visual-grid { grid-template-columns: 1fr; }
+      .metrics, .audit-grid, .result-grid, .visual-grid, .value-grid { grid-template-columns: 1fr; }
       .metric:nth-child(even), .result:nth-child(even) { border-left: 0; }
       .metric + .metric, .result + .result { border-top: 1px solid var(--line); }
       .progress-top, .footer-inner { align-items: flex-start; flex-direction: column; }
@@ -181,6 +201,10 @@
       .history-head { align-items: flex-start; flex-direction: column; }
       .history-head span { text-align: left; }
       .history-canvas-wrap { height: 240px; }
+      .formal-ledger-head { align-items: flex-start; flex-direction: column; }
+      .formal-ledger-head span { text-align: left; }
+      .formal-artifact-row { grid-template-columns: 26px minmax(0, 1fr); }
+      .formal-artifact-state { grid-column: 2; justify-self: start; }
     }
   </style>
 </head>
@@ -195,6 +219,7 @@
         <a href="#progress">下载</a>
         <a href="#runtime">运行</a>
         <a href="#audit">门禁</a>
+        <a href="#value">价值</a>
         <a href="#completion">完成</a>
         <a href="#training-process">训练</a>
         <a href="#artifacts">产物</a>
@@ -208,8 +233,8 @@
       <div class="container">
         <div class="eyebrow">DROID FULL RLDS · ORICO 6 TB · LIVE AUDIT</div>
         <h1>DROID 全量数据与 Q-Tail 同算力训练账本</h1>
-        <p class="lead">把 3.366 TiB 官方 DROID RLDS 数据、训练后端、下载环境、日志、checkpoint 和中间结果全部放在 ORICO。完整性门禁通过后，source 与 Q-Tail 各完成 20,000 次留出评测优化器更新和 20,000 次全量部署优化器更新；两边总算力严格相同。</p>
-        <div class="claim-banner">最终覆盖指标只在 seed=11、按 DROID 版本分层且路径哈希固定的留出集上计算：每个 2,048-shard release 固定留出 410 个，共 820 个。Tail 由真实 episode、匿名指令指纹、动作、奖励和轨迹长度定义，不使用 shard 序号。Q-Tail target 与评测共用预注册 tail taxonomy，因此结果只验证 allocation-head 的留出分配一致性，不是独立因果证据，也不冒充机器人 policy 成功率。</div>
+        <p class="lead">把 3.366 TiB 官方 DROID RLDS 数据、官方参考后端、下载环境、日志、checkpoint 和中间结果全部放在 ORICO。完整性门禁通过后，source 与 Q-Tail 各完成 20,000 次留出评测优化器更新和 20,000 次全量部署优化器更新；两边总算力严格相同。</p>
+        <div class="claim-banner">最终覆盖指标只在 seed=11、按 DROID 版本分层且路径哈希固定的留出集上计算：每个 2,048-shard release 固定留出 410 个，共 820 个。Tail 由真实 episode、匿名指令指纹、动作、奖励和轨迹长度定义，不使用 shard 序号。Q-Tail target 与评测共用预注册 tail taxonomy，因此结果只验证 allocation-head 的留出分配一致性，不是独立因果证据，也不冒充机器人 policy 成功率。官方 <code>droid_policy_learning</code> policy 后端仅按固定提交封存为复现参考，不参与本次 AllocationHead 优化。</div>
         <div class="metrics">
           <div class="metric"><div class="label">官方远端规模</div><div class="value">3.366 TiB</div><div class="note">3,700,745,265,151 bytes</div></div>
           <div class="metric"><div class="label">ORICO 可用空间</div><div class="value" id="free-tib">-</div><div class="note" id="capacity-gate">容量门禁读取中</div></div>
@@ -278,6 +303,7 @@
           <article class="audit-card"><i data-lucide="workflow"></i><h3>主管线</h3><p id="runtime-pipeline">读取进程</p></article>
           <article class="audit-card"><i data-lucide="download-cloud"></i><h3>下载器</h3><p id="runtime-downloader">读取进程</p></article>
           <article class="audit-card"><i data-lucide="git-compare-arrows"></i><h3>下载后代际交接</h3><p id="runtime-handoff">读取 watcher 与目标 PID</p></article>
+          <article class="audit-card"><i data-lucide="file-key-2"></i><h3>流水线代码代际</h3><p id="runtime-generation">读取 PID、锁与脚本 SHA</p></article>
           <article class="audit-card"><i data-lucide="scan-line"></i><h3>特征预热</h3><p id="runtime-prewarm">读取进程</p></article>
           <article class="audit-card"><i data-lucide="shield-check"></i><h3>Watchdog</h3><p id="runtime-watchdog">读取进程</p></article>
           <article class="audit-card"><i data-lucide="activity"></i><h3>状态心跳</h3><p id="runtime-heartbeat">读取时间</p></article>
@@ -387,7 +413,7 @@
           <div class="result"><div class="label">解析率</div><div class="value" id="parse-rate">等待</div><div class="note" id="records-decoded">record-level evidence</div></div>
           <div class="result"><div class="label">留出 Tail allocation gain</div><div class="value" id="tail-gain">等待</div><div class="note" id="tail-ci">5,000 次 release-stratified paired bootstrap CI；arm-swap 仅作诊断</div></div>
           <div class="result"><div class="label">极端欠分配下降量</div><div class="value" id="extreme-reduction">等待</div><div class="note">source rate − Q-Tail rate · positive is better</div></div>
-          <div class="result"><div class="label">预注册结果裁决</div><div class="value" id="hypothesis-gate">等待</div><div class="note">SUPPORTED: gain ≥ 2 pp · CI low &gt; 0 · extreme reduction &gt; 0；结果方向不影响实验完成</div></div>
+          <div class="result"><div class="label">预注册结果裁决</div><div class="value" id="hypothesis-gate">等待</div><div class="note" id="hypothesis-gate-note">SUPPORTED: gain ≥ 2 pp · CI low ≥ 2 pp · extreme reduction &gt; 0；结果方向不影响实验完成</div></div>
         </div>
         <div class="claim-banner" id="rare-coverage-boundary">罕见指令覆盖曲线等待正式留出预测。该指标只统计匿名原始指令字节的 SHA-256 指纹发现率，不等同于语义任务覆盖、tail success 或机器人 policy 成功率。</div>
         <div class="coverage-shell">
@@ -412,6 +438,33 @@
             <figcaption>先前任务空间锚点：Q-Tail 将更多预算分给高风险任务。DROID 全量结果会以新的训练报告独立给出。</figcaption>
           </figure>
         </div>
+      </div>
+    </section>
+
+    <section class="section" id="value">
+      <div class="container">
+        <div class="section-head">
+          <div><div class="kicker">Technical & Commercial Decision</div><h2>技术价值与商业价值由正式裁决决定</h2></div>
+          <div class="section-note" id="value-status-note">当前正式结果 WITHHELD。下载、MD5、全记录闭环、同算力训练与最终公开投影完成前，不主张性能提升、ROI 或客户收益。</div>
+        </div>
+        <div class="value-grid">
+          <div class="value-item">
+            <div class="label">证据状态</div>
+            <div class="value warn" id="value-evidence-state">WITHHELD</div>
+            <p id="value-evidence-note">等待 4,102 对象、4,096 TFRecord、187,891 records、正式训练与最终公开投影全部通过。</p>
+          </div>
+          <div class="value-item">
+            <div class="label">技术价值</div>
+            <div class="value warn" id="value-technical-state">等待正式裁决</div>
+            <p id="value-technical-note">目前只证明下载、审计、预解析和同算力协议可以运行，不把预测演练升级为全量效果。</p>
+          </div>
+          <div class="value-item">
+            <div class="label">商业价值</div>
+            <div class="value warn" id="value-commercial-state">不可主张效果</div>
+            <p id="value-commercial-note">正式结果发布前，只能展示可审计的数据基础设施，不能承诺机器人成功率或商业回报。</p>
+          </div>
+        </div>
+        <div class="value-boundary" id="value-boundary">商业解释限定为 DROID AllocationHead 的数据预算重分配证据。即使结果 SUPPORTED，也只支持进入客户数据策展/分配试点，不构成机器人 policy 成功率、收入、ROI 或部署效果保证。</div>
       </div>
     </section>
 
@@ -454,6 +507,12 @@
             <a class="artifact" href="results/qtail_droid_full/live_logs/pipeline_watchdog.log"><i data-lucide="activity"></i>实时后台 watchdog 日志</a>
             <a class="artifact" href="results/qtail_droid_full/live_logs/qtail-web-services.log"><i data-lucide="monitor-check"></i>双端口页面健康检查与恢复日志</a>
             <a class="artifact" href="results/qtail_droid_full/live_logs/manual_endpoint_generation_handoff.log"><i data-lucide="gauge"></i>HTTP/2 与 worker 调优对照日志</a>
+            <a class="artifact" href="results/qtail_droid_full/live_logs/qtail_droid_terminal_launcher.log"><i data-lucide="timer-reset"></i>定时启动器监督日志 ORICO 镜像</a>
+            <a class="artifact" href="results/qtail_droid_full/live_logs/qtail_droid_launchd_stderr.log"><i data-lucide="file-warning"></i>LaunchAgent stderr ORICO 镜像</a>
+            <a class="artifact" href="results/qtail_droid_full/live_logs/qtail_droid_launchd_stdout.log"><i data-lucide="file-output"></i>LaunchAgent stdout ORICO 镜像</a>
+            <a class="artifact" href="results/qtail_droid_full/live_logs/qtail_uniclash_guard_stderr.log"><i data-lucide="shield-alert"></i>UniClash 守护 stderr ORICO 镜像</a>
+            <a class="artifact" href="results/qtail_droid_full/live_logs/qtail_uniclash_guard_stdout.log"><i data-lucide="shield-check"></i>UniClash 守护 stdout ORICO 镜像</a>
+            <a class="artifact" href="results/qtail_droid_full/live_logs/qtail_web_services_local.log"><i data-lucide="monitor-cog"></i>本机页面服务监督日志 ORICO 镜像</a>
             <a class="artifact" href="results/qtail_droid_full/download_progress_samples_final.json"><i data-lucide="file-check-2"></i>最终下载历史快照</a>
             <a class="artifact" href="results/qtail_droid_full/droid_process_log_manifest.json"><i data-lucide="file-text"></i>最终过程日志 SHA-256 清单</a>
             <a class="artifact" href="results/qtail_droid_full/process_logs_final/droid_full_pipeline.log"><i data-lucide="terminal"></i>下载、校验与训练流水线日志快照</a>
@@ -463,7 +522,13 @@
             <a class="artifact" href="results/qtail_droid_full/process_logs_final/progress_refresh.log"><i data-lucide="list-checks"></i>阶段状态刷新日志快照</a>
             <a class="artifact" href="results/qtail_droid_full/process_logs_final/pipeline_generation_handoff.log"><i data-lucide="git-commit-horizontal"></i>下载至训练代际切换日志快照</a>
             <a class="artifact" href="results/qtail_droid_full/process_logs_final/manual_endpoint_generation_handoff.log"><i data-lucide="gauge"></i>HTTP/2 与 worker 调优日志快照</a>
-            <a class="artifact" href="results/qtail_droid_full/process_logs_final/qtail-web-services.log"><i data-lucide="monitor-check"></i>双端口页面恢复日志快照</a>
+            <a class="artifact" href="results/qtail_droid_full/process_logs_final/qtail_web_services.log"><i data-lucide="monitor-check"></i>双端口页面恢复日志快照</a>
+            <a class="artifact" href="results/qtail_droid_full/process_logs_final/qtail_droid_terminal_launcher.log"><i data-lucide="timer-reset"></i>定时启动器监督日志快照</a>
+            <a class="artifact" href="results/qtail_droid_full/process_logs_final/qtail_droid_launchd_stderr.log"><i data-lucide="file-warning"></i>LaunchAgent stderr 日志快照</a>
+            <a class="artifact" href="results/qtail_droid_full/process_logs_final/qtail_droid_launchd_stdout.log"><i data-lucide="file-output"></i>LaunchAgent stdout 日志快照</a>
+            <a class="artifact" href="results/qtail_droid_full/process_logs_final/qtail_uniclash_guard_stderr.log"><i data-lucide="shield-alert"></i>UniClash 守护 stderr 日志快照</a>
+            <a class="artifact" href="results/qtail_droid_full/process_logs_final/qtail_uniclash_guard_stdout.log"><i data-lucide="shield-check"></i>UniClash 守护 stdout 日志快照</a>
+            <a class="artifact" href="results/qtail_droid_full/process_logs_final/qtail_web_services_local.log"><i data-lucide="monitor-cog"></i>本机页面服务监督日志快照</a>
             <a class="artifact" href="results/qtail_droid_full/pipeline_timeline.json"><i data-lucide="git-commit-horizontal"></i>全流程 SHA-256 链式时间线</a>
             <a class="artifact" href="results/qtail_droid_full/pipeline_timeline_current_verification.json"><i data-lucide="shield-check"></i>实时链式时间线与全时段传输验证</a>
             <a class="artifact" href="results/qtail_droid_full/droid_timeline_monotonic_selftest.json"><i data-lucide="test-tube-diagonal"></i>累计预解析计数单调性正/负控制</a>
@@ -491,14 +556,15 @@
             <a class="artifact" href="results/qtail_droid_full/droid_download_marker_selftest.json"><i data-lucide="stamp"></i>下载交接标记 8 项正/负控制</a>
             <a class="artifact" href="results/qtail_droid_full/droid_mirror_verifier_selftest.json"><i data-lucide="shield-check"></i>最终镜像校验器 8 项破坏性控制</a>
             <a class="artifact" href="results/qtail_droid_full/droid_downloader_single_writer_selftest.json"><i data-lucide="lock-keyhole"></i>下载器写入、容量与物理网卡 13 项破坏性控制</a>
-            <a class="artifact" href="results/qtail_droid_full/droid_runtime_process_contract_selftest.json"><i data-lucide="workflow"></i>运行时进程、handoff、预热心跳与 guard 14 项破坏性控制</a>
-            <a class="artifact" href="results/qtail_droid_full/droid_stage_marker_hardening_selftest.json"><i data-lucide="file-lock-2"></i>终态 marker、bootstrap、公开投影与 9/9 浏览器证据 26 项控制</a>
-            <a class="artifact" href="results/qtail_droid_full/droid_progress_preview_selftest.json"><i data-lucide="scan-eye"></i>preview、sealing、committed 与 READY 语义 11 项控制</a>
-            <a class="artifact" href="results/qtail_droid_full/droid_pipeline_shell_contract_selftest.json"><i data-lucide="workflow"></i>流水线不可逆交接 7 项控制</a>
+            <a class="artifact" href="results/qtail_droid_full/droid_runtime_process_contract_selftest.json"><i data-lucide="workflow"></i>运行时进程、ORICO 写权限、handoff、预热心跳、checksum 收敛与 guard 16 项破坏性控制</a>
+            <a class="artifact" href="results/qtail_droid_full/pipeline_generation_gate.json"><i data-lucide="file-key-2"></i>Checksum、环境封存与正式训练的 PID / lock / 脚本 SHA 代际门禁</a>
+            <a class="artifact" href="results/qtail_droid_full/droid_stage_marker_hardening_selftest.json"><i data-lucide="file-lock-2"></i>训练代际、闭包合同、终态 marker、bootstrap、公开投影与 9/9 浏览器证据 38 项控制</a>
+            <a class="artifact" href="results/qtail_droid_full/droid_progress_preview_selftest.json"><i data-lucide="scan-eye"></i>preview、sealing、committed 与 READY 语义 15 项控制</a>
+            <a class="artifact" href="results/qtail_droid_full/droid_pipeline_shell_contract_selftest.json"><i data-lucide="workflow"></i>流水线不可逆交接 9 项控制</a>
             <a class="artifact" href="results/qtail_droid_full/droid_training_gate_order_selftest.json"><i data-lucide="shield-check"></i>训练前门槛顺序 8 项正/负控制</a>
             <a class="artifact" href="tools/qtail_verify_droid_stage_markers.py"><i data-lucide="file-key-2"></i>训练与终态 marker 权威验证器</a>
             <a class="artifact" href="results/qtail_droid_full/uniclash_pre_checksum_gate.json"><i data-lucide="route"></i>Checksum 启动前 VPN 隔离门禁</a>
-            <a class="artifact" href="results/qtail_droid_full/uniclash_pre_checksum_gate_selftest.json"><i data-lucide="test-tube-diagonal"></i>Checksum VPN 门禁 10 项破坏性控制</a>
+            <a class="artifact" href="results/qtail_droid_full/uniclash_pre_checksum_gate_selftest.json"><i data-lucide="test-tube-diagonal"></i>Checksum VPN 门禁 13 项破坏性控制</a>
             <a class="artifact" href="results/qtail_droid_full/droid_live_partial_marker_rejection.json"><i data-lucide="shield-x"></i>真实未完成镜像拒绝完成标记</a>
             <a class="artifact" href="tools/qtail_verify_droid_download_marker.py"><i data-lucide="file-key-2"></i>不可变下载交接标记验证器</a>
             <a class="artifact" href="tools/qtail_downloader_single_writer_selftest.py"><i data-lucide="test-tube-diagonal"></i>下载器并发互斥复现实验</a>
@@ -509,7 +575,8 @@
             <a class="artifact" href="tools/qtail_verify_droid_mirror.py"><i data-lucide="file-search-2"></i>4,102 对象镜像校验器</a>
             <a class="artifact" href="tools/qtail_droid_mirror_verifier_selftest.py"><i data-lucide="test-tube-diagonal"></i>镜像校验器破坏性复现实验</a>
             <a class="artifact" href="tools/qtail_droid_training_gate_order_selftest.py"><i data-lucide="test-tube-diagonal"></i>训练前门槛顺序复现实验</a>
-            <a class="artifact" href="results/qtail_droid_full/droid_feature_prewarm_status.json"><i data-lucide="scan-line"></i>完整 shard 预热审计</a>
+            <a class="artifact" href="results/qtail_droid_full/droid_feature_prewarm_status.json"><i data-lucide="scan-line"></i>当前完整 shard 预热审计</a>
+            <a class="artifact" href="results/qtail_droid_full/droid_prewarm_status_contract_selftest.json"><i data-lucide="test-tube-diagonal"></i>预热范围与双 release 组成 6 项正/负控制</a>
             <a class="artifact" href="results/qtail_droid_full/droid_feature_prewarm_heartbeat.json"><i data-lucide="heart-pulse"></i>预热进程 PID 绑定实时心跳</a>
             <a class="artifact" href="results/qtail_droid_full/droid_feature_prewarm_run.json"><i data-lucide="clipboard-check"></i>预热运行清单</a>
             <a class="artifact" href="results/qtail_droid_full/droid_feature_cache_manifest.json"><i data-lucide="files"></i>逐缓存 SHA-256 清单</a>
@@ -530,13 +597,14 @@
             <a class="artifact" href="results/qtail_droid_full/droid_environment_manifest.json"><i data-lucide="cpu"></i>训练环境与关键输入 SHA-256</a>
             <a class="artifact" href="results/qtail_droid_full/droid_preflight_training_smoke.json"><i data-lucide="play-circle"></i>真实 MPS 训练预检与续跑审计</a>
             <a class="artifact" href="results/qtail_droid_full/droid_preflight_training_smoke_report.json"><i data-lucide="file-warning"></i>预检完整报告（非正式效果证据）</a>
+            <a class="artifact" href="tools/qtail_run_droid_preflight.py"><i data-lucide="terminal-square"></i>当前版本预检运行器（MD5 / MPS / checkpoint v6）</a>
             <a class="artifact" href="results/qtail_droid_full/droid_forecast_908_summary.json"><i data-lucide="scan-line"></i>908-shard 预测演练诚实摘要</a>
             <a class="artifact" href="results/qtail_forecast_908_20260728/run/droid_full_training_report.json"><i data-lucide="flask-conical"></i>预测演练完整训练报告（非正式）</a>
             <a class="artifact" href="results/qtail_forecast_908_20260728/run/droid_intermediate_checkpoint_manifest.json"><i data-lucide="git-commit-horizontal"></i>预测演练 20 checkpoint 清单</a>
             <a class="artifact" href="results/qtail_droid_full/droid_scalability_canary_summary.json"><i data-lucide="badge-check"></i>2,505-shard 规模与续跑演练摘要（非正式）</a>
             <a class="artifact" href="results/qtail_droid_full/droid_scalability_canary_full_report.json"><i data-lucide="flask-conical"></i>2,505-shard 工程演练完整报告（非正式）</a>
             <a class="artifact" href="results/qtail_droid_full/droid_scalability_canary_frozen_shard_list.json"><i data-lucide="list-checks"></i>2,505-shard 冻结成员清单</a>
-            <a class="artifact" href="results/qtail_droid_full/droid_shard_list_selftest.json"><i data-lucide="test-tube-diagonal"></i>冻结清单 9 项正/负控制</a>
+            <a class="artifact" href="results/qtail_droid_full/droid_shard_list_selftest.json"><i data-lucide="test-tube-diagonal"></i>冻结清单 11 项正/负控制</a>
             <a class="artifact" href="results/qtail_droid_full/droid_artifact_manifest_merge_selftest.json"><i data-lucide="file-lock-2"></i>正式产物清单封存 7 项正/负控制</a>
             <a class="artifact" href="docs/experiments/qtail_droid_full_protocol.md"><i data-lucide="book-open-check"></i>留出评测与同算力协议</a>
             <a class="artifact" href="results/qtail_droid_full/droid_full_run_manifest.json"><i data-lucide="clipboard-list"></i>同算力运行清单</a>
@@ -561,6 +629,13 @@
             <a class="artifact" href="results/qtail_droid_full/final_page_postcommit_mobile.png"><i data-lucide="smartphone"></i>正式 9/9 移动端截图</a>
           </div>
           <pre id="log-tail">正在读取 ORICO 流水线日志...</pre>
+        </div>
+        <div class="formal-ledger">
+          <div class="formal-ledger-head">
+            <strong>正式训练产物合同账本</strong>
+            <span id="formal-artifact-summary">读取 required artifact contract</span>
+          </div>
+          <div class="formal-artifact-ledger" id="formal-artifact-ledger" aria-label="正式训练产物合同账本"></div>
         </div>
       </div>
     </section>
@@ -587,6 +662,13 @@
     const text = (id, value) => {
       const node = document.getElementById(id);
       if (node) node.textContent = value;
+    };
+    const valueState = (id, value, tone = "warn") => {
+      const node = document.getElementById(id);
+      if (!node) return;
+      node.textContent = value;
+      node.classList.remove("good", "warn", "bad");
+      node.classList.add(tone);
     };
     const tib = (bytes, digits = 3) => `${(Number(bytes || 0) / 1099511627776).toFixed(digits)} TiB`;
     const pct = (value, digits = 2) => `${(Number(value || 0) * 100).toFixed(digits)}%`;
@@ -728,6 +810,11 @@
         const completionRequirements = Array.isArray(completion.requirements)
           ? completion.requirements
           : [];
+        const formalArtifactEvidence = (
+          completionRequirements.find(
+            (item) => item.id === "intermediate_artifacts"
+          ) || {}
+        ).evidence || {};
         const artifactAvailability = data.artifact_link_availability || {};
         const artifactItems = artifactAvailability.items || {};
         const postCommitProjectionHrefs = [
@@ -764,7 +851,9 @@
           link.setAttribute(
             "title",
             available
-              ? `READY · ${integer(entry.bytes)} bytes`
+              ? (entry.empty_supervision_log
+                ? "READY · 0 bytes · 无 stdout 事件"
+                : `READY · ${integer(entry.bytes)} bytes`)
               : `WAIT · ${entry?.reason || "该证据将在对应流水线阶段完成后生成"}`,
           );
           let state = link.querySelector(".artifact-state");
@@ -775,6 +864,69 @@
           }
           state.textContent = available ? "READY" : "WAIT";
         });
+        const formalRequiredPaths = Array.isArray(
+          formalArtifactEvidence.required_artifacts
+        ) ? formalArtifactEvidence.required_artifacts : [];
+        const formalMissingPaths = new Set(
+          Array.isArray(formalArtifactEvidence.physically_missing_required_artifacts)
+            ? formalArtifactEvidence.physically_missing_required_artifacts
+            : []
+        );
+        const formalGeneratedPaths = new Set(
+          Array.isArray(formalArtifactEvidence.present_but_unsealed_required_artifacts)
+            ? formalArtifactEvidence.present_but_unsealed_required_artifacts
+            : []
+        );
+        const formalLedger = document.getElementById("formal-artifact-ledger");
+        formalLedger.replaceChildren();
+        formalRequiredPaths.forEach((path, index) => {
+          const row = document.createElement("div");
+          const state = formalMissingPaths.has(path)
+            ? "WAIT"
+            : formalGeneratedPaths.has(path)
+              ? "GENERATED"
+              : "SEALED";
+          row.className = `formal-artifact-row ${state.toLowerCase()}`;
+          row.dataset.path = path;
+          row.dataset.state = state;
+          const number = document.createElement("span");
+          number.className = "formal-artifact-index";
+          number.textContent = String(index + 1).padStart(2, "0");
+          const link = document.createElement("a");
+          link.className = "formal-artifact-link";
+          const marker = "/results/qtail_droid_full/";
+          const markerIndex = String(path).indexOf(marker);
+          const relativePath = markerIndex >= 0
+            ? `results/qtail_droid_full/${String(path).slice(markerIndex + marker.length)}`
+            : String(path);
+          link.href = relativePath;
+          link.textContent = relativePath;
+          const badge = document.createElement("span");
+          badge.className = "formal-artifact-state";
+          badge.textContent = state;
+          row.append(number, link, badge);
+          formalLedger.append(row);
+        });
+        const formalArtifactSealState = formalArtifactEvidence.artifact_seal_state || {};
+        formalLedger.dataset.requiredCount = String(
+          formalArtifactEvidence.required_artifact_count || 0
+        );
+        formalLedger.dataset.sealedCount = String(
+          formalArtifactSealState.sealed_required_count || 0
+        );
+        formalLedger.dataset.generatedCount = String(
+          formalArtifactSealState.present_but_unsealed_required_count || 0
+        );
+        formalLedger.dataset.waitCount = String(
+          formalArtifactSealState.physically_missing_required_count || 0
+        );
+        text(
+          "formal-artifact-summary",
+          `${integer(formalRequiredPaths.length)} / ${integer(formalArtifactEvidence.required_artifact_count)} 路径已列出`
+          + ` · SEALED ${integer(formalArtifactSealState.sealed_required_count)}`
+          + ` · GENERATED ${integer(formalArtifactSealState.present_but_unsealed_required_count)}`
+          + ` · WAIT ${integer(formalArtifactSealState.physically_missing_required_count)}`
+        );
 
         text("free-tib", tib(disk.free_bytes));
         text("capacity-gate", disk.capacity_gate_passed
@@ -784,7 +936,12 @@
         text("file-count", `${integer(download.files)} files`);
         text("tfrecord-count", integer(download.tfrecords));
         text("partial-count", `${integer(download.partials)} partial`);
-        text("stage-label", stageNames[data.stage] || data.stage || "-");
+        text(
+          "stage-label",
+          localMd5Rehash.status === "rehashing"
+            ? "本地 MD5 复核"
+            : stageNames[data.stage] || data.stage || "-"
+        );
         text("generated-at", String(data.generated_at || "").replace("T", " ").slice(0, 19));
         text("download-percent", `${percent.toFixed(4)}%`);
         text("download-bytes", integer(download.bytes));
@@ -894,11 +1051,13 @@
         const environmentPassed = Object.values(environmentChecks).filter(Boolean).length;
         const environmentTotal = Object.keys(environmentChecks).length;
         text("audit-protocol",
-          protocol.status === "passed" && protocolTotal === 38
-            && environmentTest.status === "passed" && environmentTotal >= 4
+          protocol.status === "passed" && protocolTotal === 39
+            && environmentTest.status === "passed"
+            && environmentTest.contract_version === "qtail_droid_environment_contract_selftest_v3"
+            && environmentTotal === 9 && environmentPassed === 9
             ? `${integer(protocolPassed)} / ${integer(protocolTotal)} PASS`
               + ` · ENV ${integer(environmentPassed)} / ${integer(environmentTotal)} PASS`
-              + " · 三态结论、留出隔离、续跑、异常 checkpoint / UniClash 违规拒绝"
+              + " · 三态结论、留出隔离、续跑、异常 checkpoint / UniClash / 后端漂移拒绝"
             : `等待完整协议自测 · ${integer(protocolPassed)} / ${integer(protocolTotal)}`
               + ` · ENV ${integer(environmentPassed)} / ${integer(environmentTotal)}`
         );
@@ -908,10 +1067,10 @@
         const trainingOrderPassed = trainingOrderControls.filter((item) => item.passed).length;
         text("audit-training-order",
           trainingGateOrderTest.status === "passed"
-            && trainingGateOrderTest.version === "qtail_droid_training_gate_order_selftest_v1"
-            && trainingOrderControls.length === 8
-            && trainingOrderPassed === 8
-            ? "8 / 8 PASS · 镜像、187,891 条记录、解析/扫描与留出门槛先于训练标记和首次 optimizer 更新"
+            && trainingGateOrderTest.version === "qtail_droid_training_gate_order_selftest_v2"
+            && trainingOrderControls.length === 11
+            && trainingOrderPassed === 11
+            ? "11 / 11 PASS · 代码快照、镜像、187,891 条记录、解析/扫描与留出门槛先于训练标记和首次 optimizer 更新"
             : `BLOCKED · ${integer(trainingOrderPassed)} / ${integer(trainingOrderControls.length)} controls`
         );
         text("file-count", `${integer(download.files)} files · logical ${tib(download.logical_bytes)}`);
@@ -947,16 +1106,45 @@
         };
         text("runtime-pipeline", runtimeProcessText("pipeline"));
         text("runtime-downloader", runtimeProcessText("downloader"));
+        const runtimeHandoffProcesses = runtimeProcesses.handoff || [];
+        const runtimeHandoffTerminal = (
+          Number((runtime.required_process_counts || {}).handoff) === 0
+          && runtimeHandoffProcesses.length === 0
+          && runtime.handoff_binding_passed
+          && ((runtime.pipeline_generation || {}).status === "hash_matched")
+        );
         text("runtime-handoff",
           `${runtimeProcessText("handoff")}`
           + ` · ${runtime.handoff_binding_passed ? "TARGET MATCH" : "TARGET MISMATCH"}`
+          + (runtimeHandoffTerminal ? " · TERMINAL" : "")
           + " · 1s POLL"
         );
+        const pipelineGeneration = runtime.pipeline_generation || {};
+        const generationSha = String(
+          pipelineGeneration.current_script_sha256 || ""
+        ).slice(0, 16);
+        text("runtime-generation",
+          pipelineGeneration.status === "hash_matched"
+            ? `HASH MATCH · PID ${integer(pipelineGeneration.process_pid)} · ${generationSha}…`
+            : pipelineGeneration.status === "legacy_handoff_pending"
+              ? "HANDOFF PENDING · legacy marker · download-only"
+              : `BLOCKED · PID/锁/SHA 未闭合${generationSha ? ` · current ${generationSha}…` : ""}`
+        );
         const runtimePrewarmHeartbeat = runtime.prewarm_heartbeat || {};
+        const runtimePrewarmProcesses = ((runtime.processes || {}).prewarm) || [];
+        const runtimePrewarmTerminal = (
+          runtimePrewarmHeartbeat.phase === "checksum_verified_exit"
+          && runtimePrewarmProcesses.length === 0
+          && runtimePrewarmHeartbeat.gate_passed
+        );
         text("runtime-prewarm",
           `${runtimeProcessText("prewarm")}`
           + ` · ${runtimePrewarmHeartbeat.phase || "等待阶段"}`
-          + ` · ${runtimePrewarmHeartbeat.pid_matches_unique_process ? "PID MATCH" : "PID MISMATCH"}`
+          + ` · ${runtimePrewarmTerminal
+            ? "TERMINAL"
+            : runtimePrewarmHeartbeat.pid_matches_unique_process
+              ? "PID MATCH"
+              : "PID MISMATCH"}`
           + (runtimePrewarmHeartbeat.age_seconds == null
             ? ""
             : ` · ${Number(runtimePrewarmHeartbeat.age_seconds).toFixed(1)}s`)
@@ -1053,9 +1241,10 @@
         const runtimeProcessTotal = Object.keys(runtimeProcessChecks).length;
         text("audit-runtime-process",
           runtimeProcessTest.status === "passed"
-            && runtimeProcessPassed === 14
-            && runtimeProcessTotal === 14
-            ? "14 / 14 PASS · 缺失、重复、旧 PID、伪造预热心跳、过期心跳、guard 缺失、阶段切换、handoff 自愈、唯一所有权与损坏下载 marker 均被拒绝"
+            && runtimeProcessTest.control === "droid_runtime_process_contract_v11"
+            && runtimeProcessPassed === 16
+            && runtimeProcessTotal === 16
+            ? "16 / 16 PASS · 缺失、重复、旧 PID、无 ORICO 写权限替换、伪造预热心跳、过期心跳、guard 缺失、阶段切换、handoff 自愈、唯一所有权、损坏下载 marker 与 checksum 收敛断边均被拒绝"
             : `BLOCKED · ${integer(runtimeProcessPassed)} / ${integer(runtimeProcessTotal)} controls`
         );
         const sealControls = [
@@ -1064,11 +1253,6 @@
           artifactManifestTest,
           shellContractTest,
         ];
-        const formalArtifactEvidence = (
-          completionRequirements.find(
-            (item) => item.id === "intermediate_artifacts"
-          ) || {}
-        ).evidence || {};
         const sealPassed = sealControls.every((item) =>
           item.status === "passed"
           && Number(item.controls_passed || 0) === Number(item.controls_total || -1)
@@ -1099,9 +1283,9 @@
             && checksumVpnPassed === 10
             && checksumVpnTotal === 10
             && checksumVpnGateTest.status === "passed"
-            && checksumVpnControlsPassed === 10
-            && checksumVpnControlsTotal === 10
-            ? "PASS · LIVE 10 / 10 · CONTROLS 10 / 10 · UniClashCore ON · TUN OFF · en1"
+            && checksumVpnControlsPassed === 13
+            && checksumVpnControlsTotal === 13
+            ? "PASS · LIVE 10 / 10 · CONTROLS 13 / 13 · UniClashCore ON · TUN OFF · en1"
             : `WAIT · live ${integer(checksumVpnPassed)}/${integer(checksumVpnTotal)}`
               + ` · controls ${integer(checksumVpnControlsPassed)}/${integer(checksumVpnControlsTotal)}`
         );
@@ -1435,6 +1619,8 @@
           && completion.formal_results_publishable === true
           && completion.outcome_is_completion_gate === false
           && data.markers?.droid_training_complete === true
+          && data.markers?.final_page_qa_complete === true
+          && publicProjectionCommitted
         );
         if (formalResultsPublishable) {
           text("trained-shards", integer(training.shard_count));
@@ -1507,9 +1693,88 @@
                 : "")
             );
           }
+          const outcome = String(hypothesis.outcome || "inconclusive").toLowerCase();
+          const outcomeTone = outcome === "supported"
+            ? "good"
+            : outcome === "not_supported"
+              ? "bad"
+              : "warn";
+          const computeAudit = training.compute_audit || {};
+          const sourceUpdates = Number(computeAudit.source_optimizer_updates || 0);
+          const qtailUpdates = Number(computeAudit.qtail_optimizer_updates || 0);
+          const coverageDecision = rareCoverage.status === "no_eligible_fingerprints"
+            ? "罕见指令指纹覆盖不适用"
+            : halfCoverage
+              ? Number(halfCoverage.qtail_draws) < Number(halfCoverage.source_draws)
+                ? `50% 指纹覆盖更快：少 ${integer(Number(halfCoverage.source_draws) - Number(halfCoverage.qtail_draws))} draws`
+                : Number(halfCoverage.qtail_draws) > Number(halfCoverage.source_draws)
+                  ? `50% 指纹覆盖未加速：多 ${integer(Number(halfCoverage.qtail_draws) - Number(halfCoverage.source_draws))} draws`
+                  : "50% 指纹覆盖速度持平"
+              : "罕见指令指纹覆盖未形成可裁决曲线";
+          valueState("value-evidence-state", `FORMAL · ${outcome.toUpperCase()}`, outcomeTone);
+          text("value-evidence-note",
+            `${integer(training.shard_count)} shards · ${integer(trajectory.records_decoded)} records`
+            + ` · Source ${integer(sourceUpdates)} = Q-Tail ${integer(qtailUpdates)} optimizer updates`
+            + " · 正式 marker 与九项审计独立校验。"
+          );
+          if (outcome === "supported") {
+            valueState("value-technical-state", "长尾分配目标获支持", "good");
+            text("value-technical-note",
+              `Tail allocation ${signed(effect.predicted_tail_share_gain_pp)} pp`
+              + ` · 95% CI [${Number(boot.ci95_low_pp || 0).toFixed(2)}, ${Number(boot.ci95_high_pp || 0).toFixed(2)}] pp`
+              + ` · 极端欠分配下降 ${signed(effect.extreme_underallocation_reduction_pp)} pp`
+              + ` · ${coverageDecision}。`
+            );
+            valueState("value-commercial-state", "可进入受限客户试点", "good");
+            text("value-commercial-note",
+              "可产品化为同预算长尾数据诊断、分配与审计服务；客户试点仍需使用其自身数据和下游 policy 评测，不能承诺机器人成功率、收入或 ROI。"
+            );
+          } else if (outcome === "not_supported") {
+            valueState("value-technical-state", "预注册目标未获支持", "bad");
+            text("value-technical-note",
+              `正式训练完成，但 tail allocation ${signed(effect.predicted_tail_share_gain_pp)} pp`
+              + `、CI 或极端欠分配门槛未全部通过 · ${coverageDecision}。`
+            );
+            valueState("value-commercial-state", "不得销售效果提升", "bad");
+            text("value-commercial-note",
+              "不能以本次 DROID 结果主张 Q-Tail 带来长尾提升；可保留下载、校验、同算力实验和数据审计基础设施价值。"
+            );
+          } else {
+            valueState("value-technical-state", "证据尚不确定", "warn");
+            text("value-technical-note",
+              `正式训练完成，但预注册三态裁决为 INCONCLUSIVE`
+              + ` · tail allocation ${signed(effect.predicted_tail_share_gain_pp)} pp`
+              + ` · ${coverageDecision}。`
+            );
+            valueState("value-commercial-state", "仅限探索性试点", "warn");
+            text("value-commercial-note",
+              "可以验证数据接入、长尾画像与审计流程，但不得对外声称已证明效果提升；后续试点必须预注册业务指标并独立评测。"
+            );
+          }
+          text("value-status-note",
+            `正式全量 AllocationHead 裁决：${outcome.toUpperCase()}。`
+            + " 技术与商业解释按同一报告自动映射，结果方向不影响实验是否完整。"
+          );
+          text("value-boundary",
+            `当前正式裁决为 ${outcome.toUpperCase()}。商业解释只覆盖 DROID AllocationHead 的数据预算重分配证据；`
+            + "不构成机器人 policy 成功率、环境 rollout、收入、ROI 或部署效果保证。"
+          );
         } else {
           text("result-boundary",
-            "正式结果继续 WITHHELD：必须先完成 4,102 对象 / 4,096 TFRecord / 187,891 records 闭环、同算力训练，并提交有效 DROID_TRAINING_COMPLETE marker。分配头不等于机器人 policy tail success。");
+            "正式结果继续 WITHHELD：必须先完成 4,102 对象 / 4,096 TFRecord / 187,891 records 闭环、同算力训练、最终页面 QA，并提交且验证 DROID_PUBLIC_PROJECTION_COMMITTED。分配头不等于机器人 policy tail success。");
+          valueState("value-evidence-state", "WITHHELD", "warn");
+          text("value-evidence-note",
+            "等待 4,102 对象、4,096 TFRecord、187,891 records、正式训练与最终公开投影全部通过。");
+          valueState("value-technical-state", "等待正式裁决", "warn");
+          text("value-technical-note",
+            "目前只证明下载、审计、预解析和同算力协议可以运行，不把预测演练升级为全量效果。");
+          valueState("value-commercial-state", "不可主张效果", "warn");
+          text("value-commercial-note",
+            "正式结果发布前，只能展示可审计的数据基础设施，不能承诺机器人成功率或商业回报。");
+          text("value-status-note",
+            "当前正式结果 WITHHELD。下载、MD5、全记录闭环、同算力训练与最终公开投影完成前，不主张性能提升、ROI 或客户收益。");
+          text("value-boundary",
+            "商业解释限定为 DROID AllocationHead 的数据预算重分配证据。即使结果 SUPPORTED，也只支持进入客户数据策展/分配试点，不构成机器人 policy 成功率、收入、ROI 或部署效果保证。");
         }
         text("completion-count", `${integer(completion.passed_requirements)} / ${integer(completion.total_requirements || 9)}`);
         text("completion-status", completion.status === "complete"

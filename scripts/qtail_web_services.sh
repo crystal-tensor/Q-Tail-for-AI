@@ -17,6 +17,30 @@ log() {
   printf '[%s] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >> "$LOG"
 }
 
+archive_local_supervision_logs() {
+  local source name destination temporary
+  [ "$LOG" = "/Volumes/ORICO/qtail_full_training/logs/qtail-web-services.log" ] \
+    || return 0
+  while IFS='|' read -r source name; do
+    [ -f "$source" ] || continue
+    destination="/Volumes/ORICO/qtail_full_training/logs/$name"
+    temporary="$destination.$$.tmp"
+    if ! /bin/cp -p "$source" "$temporary" 2>> "$LOG"; then
+      /bin/rm -f "$temporary"
+      continue
+    fi
+    /bin/mv -f "$temporary" "$destination" 2>> "$LOG" || \
+      /bin/rm -f "$temporary"
+  done <<EOF
+$ROOT/.tmp/qtail-droid-terminal-launcher.log|qtail_droid_terminal_launcher.log
+$ROOT/.tmp/qtail-droid-launchd.err.log|qtail_droid_launchd_stderr.log
+$ROOT/.tmp/qtail-droid-launchd.out.log|qtail_droid_launchd_stdout.log
+$ROOT/.tmp/qtail-uniclash-guard.err.log|qtail_uniclash_guard_stderr.log
+$ROOT/.tmp/qtail-uniclash-guard.out.log|qtail_uniclash_guard_stdout.log
+$ROOT/.tmp/qtail-web-services.log|qtail_web_services_local.log
+EOF
+}
+
 port_is_listening() {
   /usr/sbin/lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1
 }
@@ -33,7 +57,7 @@ service_owned() {
   pid="$(listener_pid "$port")"
   [ -n "$pid" ] || return 1
   command="$(ps -p "$pid" -o command= 2>/dev/null || true)"
-  expected="node $SERVE -l tcp://0.0.0.0:$port"
+  expected="node $SERVE --symlinks -l tcp://0.0.0.0:$port"
   [ "$command" = "$expected" ]
 }
 
@@ -83,7 +107,7 @@ ensure_service() {
   fi
 
   /usr/bin/screen -dmS "$session" /bin/zsh -lc \
-    "cd '$ROOT' && exec '$SERVE' -l tcp://0.0.0.0:$port"
+    "cd '$ROOT' && exec '$SERVE' --symlinks -l tcp://0.0.0.0:$port"
 
   for _ in {1..20}; do
     if service_healthy "$port"; then
@@ -102,5 +126,6 @@ if [ ! -x "$SERVE" ]; then
   exit 1
 fi
 
+archive_local_supervision_logs
 ensure_service 54655 qtail-web-54655
 ensure_service 6222 qtail-web-6222

@@ -1,0 +1,831 @@
+{
+  "format_version": "qtail_openx_1t_status_v2",
+  "generated_at": "2026-08-13T05:08:49.504047+00:00",
+  "status": "complete",
+  "stage": "complete",
+  "selection": {
+    "target_bytes": 1099511627776,
+    "selected_bytes": 1099405385580,
+    "selected_gib": 1023.901,
+    "dataset_count": 5,
+    "datasets": [
+      "berkeley_fanuc_manipulation",
+      "dlr_sara_pour_converted_externally_to_rlds",
+      "furniture_bench_dataset_converted_externally_to_rlds",
+      "kuka",
+      "stanford_robocook_converted_externally_to_rlds"
+    ],
+    "dataset_progress": [
+      {
+        "dataset": "berkeley_fanuc_manipulation",
+        "expected_objects": 127,
+        "verified_objects": 127,
+        "expected_bytes": 9504076105,
+        "verified_bytes": 9504076105,
+        "active_transfers": 0,
+        "expected_gib": 8.851,
+        "verified_gib": 8.851,
+        "object_progress_percent": 100.0,
+        "byte_progress_percent": 100.0
+      },
+      {
+        "dataset": "dlr_sara_pour_converted_externally_to_rlds",
+        "expected_objects": 34,
+        "verified_objects": 34,
+        "expected_bytes": 3138365781,
+        "verified_bytes": 3138365781,
+        "active_transfers": 0,
+        "expected_gib": 2.923,
+        "verified_gib": 2.923,
+        "object_progress_percent": 100.0,
+        "byte_progress_percent": 100.0
+      },
+      {
+        "dataset": "furniture_bench_dataset_converted_externally_to_rlds",
+        "expected_objects": 1019,
+        "verified_objects": 1019,
+        "expected_bytes": 123478818132,
+        "verified_bytes": 123478818132,
+        "active_transfers": 0,
+        "expected_gib": 114.999,
+        "verified_gib": 114.999,
+        "object_progress_percent": 100.0,
+        "byte_progress_percent": 100.0
+      },
+      {
+        "dataset": "kuka",
+        "expected_objects": 1020,
+        "verified_objects": 1020,
+        "expected_bytes": 829476500027,
+        "verified_bytes": 829476500027,
+        "active_transfers": 0,
+        "expected_gib": 772.51,
+        "verified_gib": 772.51,
+        "object_progress_percent": 100.0,
+        "byte_progress_percent": 100.0
+      },
+      {
+        "dataset": "stanford_robocook_converted_externally_to_rlds",
+        "expected_objects": 926,
+        "verified_objects": 926,
+        "expected_bytes": 133807625535,
+        "verified_bytes": 133807625535,
+        "active_transfers": 0,
+        "expected_gib": 124.618,
+        "verified_gib": 124.618,
+        "object_progress_percent": 100.0,
+        "byte_progress_percent": 100.0
+      }
+    ],
+    "object_count": 3126
+  },
+  "download": {
+    "status": "complete",
+    "progress_bytes": 1099405385580,
+    "progress_gib": 1023.901,
+    "progress_percent": 100.0,
+    "remaining_bytes": 0,
+    "transfer_rate_bps": 4782964.002,
+    "transfer_rate_mib_s": 4.561,
+    "eta_seconds": 0.0,
+    "completed_objects": 3126,
+    "partial_bytes": 0,
+    "active_transfers": 0,
+    "worker_count": 32,
+    "failed_objects": 0,
+    "transport_stalled_seconds": 30.075754459016025,
+    "checksum_verified_objects": 3126,
+    "route_guard": {
+      "enabled": true,
+      "expected_interface": "en1",
+      "curl_interface_bound": true,
+      "status": "passed",
+      "forbidden_interface_pattern": "^(?:utun|tun|tap|ppp|ipsec|gif|stf|lo)\\d*$",
+      "observations": [
+        {
+          "checked_at": "2026-08-12T04:12:34.194859+00:00",
+          "host": "storage-download.googleapis.com",
+          "resolved_ipv4": "142.250.69.187",
+          "interface": "en1",
+          "gateway": "192.168.3.1"
+        },
+        {
+          "checked_at": "2026-08-12T04:10:26.704649+00:00",
+          "host": "storage.googleapis.com",
+          "resolved_ipv4": "142.250.69.187",
+          "interface": "en1",
+          "gateway": "192.168.3.1"
+        }
+      ]
+    },
+    "disk_headroom": {
+      "root": "/Volumes/ORICO",
+      "free_bytes": 1136599535616,
+      "reserve_free_bytes": 966367641600,
+      "next_request_bytes": 0,
+      "required_free_bytes": 966367641600,
+      "headroom_bytes": 170231894016,
+      "passed": true,
+      "activation_boundary": "Applies to this downloader process generation."
+    }
+  },
+  "verification": {
+    "format_version": "qtail_openx_expansion_verification_v1",
+    "generated_at": "2026-08-12T04:13:09.642788+00:00",
+    "status": "verified",
+    "checks": {
+      "manifest_verified": true,
+      "checksum_manifest_verified": true,
+      "manifest_checksum_paths_match": true,
+      "all_objects_complete": true,
+      "all_bytes_complete": true,
+      "all_md5_ledger_entries_current": true,
+      "no_selected_partials": true,
+      "no_missing_objects": true,
+      "no_size_mismatches": true
+    },
+    "checks_passed": 9,
+    "checks_total": 9,
+    "expected_objects": 3126,
+    "complete_objects": 3126,
+    "md5_verified_objects": 3126,
+    "expected_bytes": 1099405385580,
+    "complete_bytes": 1099405385580,
+    "progress_percent": 100.0,
+    "missing": [],
+    "size_mismatch": [],
+    "ledger_mismatch": [],
+    "partials": [],
+    "claim_boundary": "MD5 content was computed by the downloader and is accepted here only when the official hash, generation, size, mtime and ctime still match.",
+    "md5_verified_bytes": 1099405385580,
+    "md5_progress_percent": 100.0,
+    "missing_count": 0
+  },
+  "prewarm": {
+    "status": "caught_up",
+    "feature_extractor_version": "record_features_v2_instruction_hashes",
+    "records_per_shard": 4,
+    "expected_objects": 3111,
+    "verified_objects": 3111,
+    "cached_objects": 3111,
+    "parsed_objects": 3111,
+    "failed_objects": 0,
+    "records_decoded": 10486,
+    "active_relative_path": "",
+    "verified_cache_percent": 100.0,
+    "full_manifest_complete": true,
+    "status_path": "results/openx_1t_expansion/prewarm_status.json",
+    "cache_usage_path": "results/openx_1t_expansion/training/feature_cache_usage.json"
+  },
+  "training": {
+    "status": "complete",
+    "steps": 20000,
+    "steps_target": 20000,
+    "phase": null,
+    "elapsed_seconds": null,
+    "child_pid": null,
+    "returncode": null,
+    "shard_count": 3673,
+    "total_gib": 1195.523,
+    "effect_metrics": {
+      "tail_definition": "top_30_percent_by_record_informed_tail_score",
+      "source_tail_share": 0.19330479204654694,
+      "qtail_tail_share": 0.5339337587356567,
+      "target_tail_share_gain_pp": 34.06289666891098,
+      "source_pred_tail_share": 0.19332101941108704,
+      "qtail_pred_tail_share": 0.5339284539222717,
+      "predicted_tail_share_gain_pp": 34.06074345111847,
+      "consistent_with_pt_tail_goal": true
+    },
+    "model_artifact": {
+      "path": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/training/qtail_allocation_head.pt",
+      "sha256": "e2f8b5aedd67c9b3eb5d8ee2d62a595897e60a01235a33ac6d3579eb8624fdb6",
+      "feature_names": [
+        "log_bytes",
+        "shard_size_rarity",
+        "dataset_frequency",
+        "episode_count_rarity",
+        "mean_episode_steps",
+        "reward_failure_proxy",
+        "action_complexity",
+        "instruction_complexity",
+        "instruction_rarity",
+        "terminal_rate"
+      ],
+      "parameter_count": 897
+    },
+    "report": "results/openx_1t_expansion/training/openx_demo_training_report.json",
+    "rows": "results/openx_1t_expansion/training/openx_shard_training_rows.csv",
+    "optimizer_progress": {
+      "status": "phase_complete",
+      "phase": "qtail",
+      "step": 20000,
+      "steps_target": 20000,
+      "overall_completed_updates": 40000,
+      "overall_target_updates": 40000,
+      "resumed": false,
+      "checkpoint_interval": 1000,
+      "checkpoint_path": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/training/resume_checkpoints/qtail.pt",
+      "kl": 3.991471021436155e-05,
+      "generated_at": "2026-08-12T04:15:16.920870+00:00"
+    }
+  },
+  "synthesis": {
+    "status": "complete",
+    "capability": "allocation_and_scenario_specification",
+    "raw_sample_generator_status": "not_trained",
+    "raw_sample_output": false,
+    "claim_boundary": "The completed artifacts are PT-heavy-tail allocation rows and scenario specifications. They are not newly rendered sensor, action, or robot-trajectory samples.",
+    "phase": "synthesis_complete",
+    "elapsed_seconds": 10.0,
+    "child_pid": null,
+    "returncode": 0,
+    "effect_summary": {
+      "source_tail_success": 0.35637238304098234,
+      "qtail_tail_success": 0.7069627810447741,
+      "tail_success_gain_pp": 35.059039800379175,
+      "tail_success_relative_gain_pct": 98.3775440207089,
+      "source_cvar20": 0.31097794433931253,
+      "qtail_cvar20": 0.7061853806589642,
+      "cvar20_gain_pp": 39.52074363196517,
+      "source_tail_data_share": 0.020090978013646704,
+      "qtail_tail_data_share": 0.38995214910155307,
+      "tail_data_share_gain_pp": 36.98611710879064,
+      "extreme_failure_reduction": 2,
+      "decision": {
+        "winner": "qtail_synthetic",
+        "passed": true,
+        "summary": "Q-Tail synthetic data wins under the same-budget evaluation protocol.",
+        "primary_metric": "tail_success",
+        "decision_gate": {
+          "tail_success_min_gain": 0.02,
+          "cvar20_min_gain": 0.02,
+          "tail_data_share_min_gain": 0.1,
+          "p_delta_le_0_max": 0.05
+        },
+        "reasons": [
+          "tail_success_gain=0.350590",
+          "cvar20_gain=0.395207",
+          "tail_data_share_gain=0.369861",
+          "paired_bootstrap_p_delta_le_0_within_gate",
+          "same_budget_audit_passed"
+        ]
+      },
+      "aligned_with_pt_tail_goal": true
+    },
+    "validation": {
+      "report_path": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis/qtail_data_engine_report.json",
+      "valid": true,
+      "errors": [],
+      "winner": "qtail_synthetic",
+      "test_passed": true,
+      "profile_count": 10
+    },
+    "delivery_report": "results/openx_1t_expansion/synthesis/qtail_service_delivery_report.json",
+    "synthetic_plan": "results/openx_1t_expansion/synthesis/qtail_service_synthetic_plan.csv",
+    "package_zip": "results/openx_1t_expansion/synthesis/qtail_delivery_package.zip",
+    "readme": "results/openx_1t_expansion/synthesis/README_QTAIL_DELIVERY.md"
+  },
+  "handoff_preflight": {
+    "status": "pass",
+    "claim_boundary": "Engineering handoff rehearsal on a bounded real-shard subset; not the final 1 TiB result.",
+    "training_runtime_status": "complete",
+    "training_returncode": 0,
+    "steps": 5,
+    "shards": 100,
+    "record_parse_rate": 1.0,
+    "cached_rows": 20,
+    "fresh_rows": 80,
+    "checkpoint_sha256_match": true,
+    "optimizer_updates": 10,
+    "optimizer_updates_target": 10,
+    "resume_checkpoints": 2,
+    "synthesis_runtime_status": "complete",
+    "synthesis_returncode": 0,
+    "validation_valid": true,
+    "winner": "qtail_synthetic",
+    "artifacts_passed": 7,
+    "artifacts_total": 7,
+    "training_report": "results/openx_1t_expansion/handoff_preflight/training/openx_demo_training_report.json",
+    "cache_usage": "results/openx_1t_expansion/handoff_preflight/training/feature_cache_usage.json",
+    "optimizer_progress": "results/openx_1t_expansion/handoff_preflight/training/optimizer_progress.json",
+    "delivery_report": "results/openx_1t_expansion/handoff_preflight/synthesis/qtail_service_delivery_report.json",
+    "package_zip": "results/openx_1t_expansion/handoff_preflight/synthesis/qtail_delivery_package.zip"
+  },
+  "pipeline_gates": {
+    "download": {
+      "status": "pass",
+      "completed_at": "2026-08-12T04:13:09.688175+00:00",
+      "evidence": "3126/3126 objects"
+    },
+    "md5": {
+      "status": "pass",
+      "completed_at": "2026-08-12T04:13:09.642788+00:00",
+      "evidence": "3126/3126 official MD5"
+    },
+    "prewarm": {
+      "status": "pass",
+      "completed_at": "2026-08-12T04:14:55.639156+00:00",
+      "evidence": "3111/3111 TFRecord cache · failed 0"
+    },
+    "training": {
+      "status": "pass",
+      "completed_at": "2026-08-12T04:15:20.797779+00:00",
+      "evidence": "20000/20000 optimizer steps"
+    },
+    "synthesis": {
+      "status": "pass",
+      "completed_at": "2026-08-12T04:15:30.947703+00:00",
+      "evidence": "validated delivery package"
+    }
+  },
+  "completion": {
+    "status": "complete",
+    "passed": 7,
+    "total": 7,
+    "checks": [
+      {
+        "id": "official_selection_manifest",
+        "label": "1 TiB 官方对象清单",
+        "passed": true,
+        "evidence": "3126 objects · 1023.901 GiB"
+      },
+      {
+        "id": "direct_transport_isolation",
+        "label": "UniClash 在线且下载物理网卡直连",
+        "passed": true,
+        "evidence": "Core True · TUN False · en1"
+      },
+      {
+        "id": "cross_restart_supervision",
+        "label": "跨重启自动恢复监督",
+        "passed": true,
+        "evidence": "launchd loaded True · interval 300s · plist MATCH · page HTTP 200"
+      },
+      {
+        "id": "download_and_official_md5",
+        "label": "下载完成与官方 MD5",
+        "passed": true,
+        "evidence": "3126/3126 official MD5"
+      },
+      {
+        "id": "model_training",
+        "label": "20,000 步模型训练与 checkpoint",
+        "passed": true,
+        "evidence": "20000/20000 steps · checkpoint MATCH"
+      },
+      {
+        "id": "long_tail_synthesis",
+        "label": "PT 重尾合成数据与交付包",
+        "passed": true,
+        "evidence": "7/7 artifacts · validation True"
+      },
+      {
+        "id": "final_page_projection",
+        "label": "最终页面与公开交付链接",
+        "passed": true,
+        "evidence": "page + status + 7 artifacts HTTP 200 · SHA MATCH"
+      }
+    ],
+    "checkpoint_sha256": {
+      "expected": "e2f8b5aedd67c9b3eb5d8ee2d62a595897e60a01235a33ac6d3579eb8624fdb6",
+      "actual": "e2f8b5aedd67c9b3eb5d8ee2d62a595897e60a01235a33ac6d3579eb8624fdb6",
+      "match": true
+    },
+    "synthesis_artifacts": {
+      "qtail_service_delivery_report.json": true,
+      "qtail_service_synthetic_plan.csv": true,
+      "qtail_synthetic_data.csv": true,
+      "qtail_service_model_card.json": true,
+      "qtail_data_engine_report.json": true,
+      "README_QTAIL_DELIVERY.md": true,
+      "qtail_delivery_package.zip": true
+    }
+  },
+  "history": {
+    "sample_count": 1000,
+    "path": "results/openx_1t_expansion/status_history.json",
+    "recent": [
+      {
+        "generated_at": "2026-08-13T04:08:34.535373+00:00",
+        "stage": "complete",
+        "progress_gib": 1023.901,
+        "progress_percent": 100.0,
+        "md5_verified_objects": 3126,
+        "expected_objects": 3126,
+        "prewarm_cached_objects": 3111,
+        "prewarm_verified_objects": 3111,
+        "prewarm_failed_objects": 0,
+        "transfer_rate_mib_s": 4.561,
+        "route_status": "passed",
+        "route_interface": "en1",
+        "completion_passed": 7,
+        "completion_total": 7
+      },
+      {
+        "generated_at": "2026-08-13T04:13:43.390538+00:00",
+        "stage": "complete",
+        "progress_gib": 1023.901,
+        "progress_percent": 100.0,
+        "md5_verified_objects": 3126,
+        "expected_objects": 3126,
+        "prewarm_cached_objects": 3111,
+        "prewarm_verified_objects": 3111,
+        "prewarm_failed_objects": 0,
+        "transfer_rate_mib_s": 4.561,
+        "route_status": "passed",
+        "route_interface": "en1",
+        "completion_passed": 7,
+        "completion_total": 7
+      },
+      {
+        "generated_at": "2026-08-13T04:18:52.390764+00:00",
+        "stage": "complete",
+        "progress_gib": 1023.901,
+        "progress_percent": 100.0,
+        "md5_verified_objects": 3126,
+        "expected_objects": 3126,
+        "prewarm_cached_objects": 3111,
+        "prewarm_verified_objects": 3111,
+        "prewarm_failed_objects": 0,
+        "transfer_rate_mib_s": 4.561,
+        "route_status": "passed",
+        "route_interface": "en1",
+        "completion_passed": 7,
+        "completion_total": 7
+      },
+      {
+        "generated_at": "2026-08-13T04:24:01.597081+00:00",
+        "stage": "complete",
+        "progress_gib": 1023.901,
+        "progress_percent": 100.0,
+        "md5_verified_objects": 3126,
+        "expected_objects": 3126,
+        "prewarm_cached_objects": 3111,
+        "prewarm_verified_objects": 3111,
+        "prewarm_failed_objects": 0,
+        "transfer_rate_mib_s": 4.561,
+        "route_status": "passed",
+        "route_interface": "en1",
+        "completion_passed": 7,
+        "completion_total": 7
+      },
+      {
+        "generated_at": "2026-08-13T04:29:10.458396+00:00",
+        "stage": "complete",
+        "progress_gib": 1023.901,
+        "progress_percent": 100.0,
+        "md5_verified_objects": 3126,
+        "expected_objects": 3126,
+        "prewarm_cached_objects": 3111,
+        "prewarm_verified_objects": 3111,
+        "prewarm_failed_objects": 0,
+        "transfer_rate_mib_s": 4.561,
+        "route_status": "passed",
+        "route_interface": "en1",
+        "completion_passed": 7,
+        "completion_total": 7
+      },
+      {
+        "generated_at": "2026-08-13T04:34:19.332393+00:00",
+        "stage": "complete",
+        "progress_gib": 1023.901,
+        "progress_percent": 100.0,
+        "md5_verified_objects": 3126,
+        "expected_objects": 3126,
+        "prewarm_cached_objects": 3111,
+        "prewarm_verified_objects": 3111,
+        "prewarm_failed_objects": 0,
+        "transfer_rate_mib_s": 4.561,
+        "route_status": "passed",
+        "route_interface": "en1",
+        "completion_passed": 7,
+        "completion_total": 7
+      },
+      {
+        "generated_at": "2026-08-13T04:39:28.178308+00:00",
+        "stage": "complete",
+        "progress_gib": 1023.901,
+        "progress_percent": 100.0,
+        "md5_verified_objects": 3126,
+        "expected_objects": 3126,
+        "prewarm_cached_objects": 3111,
+        "prewarm_verified_objects": 3111,
+        "prewarm_failed_objects": 0,
+        "transfer_rate_mib_s": 4.561,
+        "route_status": "passed",
+        "route_interface": "en1",
+        "completion_passed": 7,
+        "completion_total": 7
+      },
+      {
+        "generated_at": "2026-08-13T04:44:37.112508+00:00",
+        "stage": "complete",
+        "progress_gib": 1023.901,
+        "progress_percent": 100.0,
+        "md5_verified_objects": 3126,
+        "expected_objects": 3126,
+        "prewarm_cached_objects": 3111,
+        "prewarm_verified_objects": 3111,
+        "prewarm_failed_objects": 0,
+        "transfer_rate_mib_s": 4.561,
+        "route_status": "passed",
+        "route_interface": "en1",
+        "completion_passed": 7,
+        "completion_total": 7
+      },
+      {
+        "generated_at": "2026-08-13T04:49:46.146812+00:00",
+        "stage": "complete",
+        "progress_gib": 1023.901,
+        "progress_percent": 100.0,
+        "md5_verified_objects": 3126,
+        "expected_objects": 3126,
+        "prewarm_cached_objects": 3111,
+        "prewarm_verified_objects": 3111,
+        "prewarm_failed_objects": 0,
+        "transfer_rate_mib_s": 4.561,
+        "route_status": "passed",
+        "route_interface": "en1",
+        "completion_passed": 7,
+        "completion_total": 7
+      },
+      {
+        "generated_at": "2026-08-13T04:54:55.105679+00:00",
+        "stage": "complete",
+        "progress_gib": 1023.901,
+        "progress_percent": 100.0,
+        "md5_verified_objects": 3126,
+        "expected_objects": 3126,
+        "prewarm_cached_objects": 3111,
+        "prewarm_verified_objects": 3111,
+        "prewarm_failed_objects": 0,
+        "transfer_rate_mib_s": 4.561,
+        "route_status": "passed",
+        "route_interface": "en1",
+        "completion_passed": 7,
+        "completion_total": 7
+      },
+      {
+        "generated_at": "2026-08-13T05:00:04.093150+00:00",
+        "stage": "complete",
+        "progress_gib": 1023.901,
+        "progress_percent": 100.0,
+        "md5_verified_objects": 3126,
+        "expected_objects": 3126,
+        "prewarm_cached_objects": 3111,
+        "prewarm_verified_objects": 3111,
+        "prewarm_failed_objects": 0,
+        "transfer_rate_mib_s": 4.561,
+        "route_status": "passed",
+        "route_interface": "en1",
+        "completion_passed": 7,
+        "completion_total": 7
+      },
+      {
+        "generated_at": "2026-08-13T05:05:13.259258+00:00",
+        "stage": "complete",
+        "progress_gib": 1023.901,
+        "progress_percent": 100.0,
+        "md5_verified_objects": 3126,
+        "expected_objects": 3126,
+        "prewarm_cached_objects": 3111,
+        "prewarm_verified_objects": 3111,
+        "prewarm_failed_objects": 0,
+        "transfer_rate_mib_s": 4.561,
+        "route_status": "passed",
+        "route_interface": "en1",
+        "completion_passed": 7,
+        "completion_total": 7
+      }
+    ]
+  },
+  "runtime": {
+    "pipeline": [],
+    "downloader": [],
+    "prewarm_loop": [],
+    "prewarmer": [],
+    "trainer": [],
+    "synthesizer": [],
+    "uniclash_core_running": true,
+    "uniclash_tun_enabled": false,
+    "guard_status": "passed_idle",
+    "supervision": {
+      "label": "com.qtail.openx-1t-expansion",
+      "loaded": true,
+      "state": "not running",
+      "runs": 603,
+      "interval_seconds": 300,
+      "source_plist_sha256": "3bf13073e1df3d795ceabff4ce6f43f863c6bef719fd19806bdcc27929f1524f",
+      "installed_plist_sha256": "3bf13073e1df3d795ceabff4ce6f43f863c6bef719fd19806bdcc27929f1524f",
+      "plist_sha256_match": true
+    },
+    "web_page": {
+      "status": "passed",
+      "http_status": 200,
+      "url": "http://127.0.0.1:54655/qtail-openx-training"
+    },
+    "stage_markers": {
+      "download": {
+        "valid": true,
+        "completed_at": "2026-08-12T04:13:09.688175+00:00",
+        "error": null,
+        "evidence": {
+          "expected_objects": 3126,
+          "expected_bytes": 1099405385580,
+          "valid_ledger_objects": 3126,
+          "artifacts": {
+            "object_manifest": {
+              "bytes": 1016338,
+              "sha256": "c4b4d7cd3c2168272f8569e834c5a8dac0ba2b1ab2ca40ec85e89620a80bf082"
+            },
+            "checksum_manifest": {
+              "bytes": 910950,
+              "sha256": "a05cc94af8363c243777b8978727ba707cd09e1267cfea470c856575af0c4273"
+            },
+            "checksum_ledger": {
+              "bytes": 1486086,
+              "sha256": "16682eeff7649c8de93f65338f1a5a4b3262aceeae3e088acc1aeaba787db794"
+            },
+            "verification": {
+              "bytes": 958,
+              "sha256": "24d4db19666d4f73d48f8894b974f964a788609229123dfb04435f314df45cde"
+            }
+          }
+        }
+      },
+      "training": {
+        "valid": true,
+        "completed_at": "2026-08-12T04:15:20.797779+00:00",
+        "error": null,
+        "evidence": {
+          "steps": 20000,
+          "optimizer_updates": 40000,
+          "shard_count": 3673,
+          "checkpoint_sha256": "e2f8b5aedd67c9b3eb5d8ee2d62a595897e60a01235a33ac6d3579eb8624fdb6",
+          "parent_download_marker": {
+            "bytes": 862,
+            "sha256": "94a2bb5e36e2238c510c8f2986a4a64b36d09d8618500b9e9578718aaf3328bd"
+          },
+          "artifacts": {
+            "runtime": {
+              "bytes": 805,
+              "sha256": "0abdee2ecf0ca3c3e9f1465dea4c3630aeef1464b57031ec716269a50937e61a"
+            },
+            "report": {
+              "bytes": 5698,
+              "sha256": "61f408700a654f62fdba2d9a5b278207c9956234435f6053f2ad4563a7b1ee98"
+            },
+            "checkpoint": {
+              "bytes": 14011,
+              "sha256": "e2f8b5aedd67c9b3eb5d8ee2d62a595897e60a01235a33ac6d3579eb8624fdb6"
+            },
+            "training_rows": {
+              "bytes": 2178008,
+              "sha256": "b6a6f3041fdfd56dfacb3dc8f2e98f5e7745244e39881c340c7fd246aa5b6916"
+            },
+            "cache_usage": {
+              "bytes": 607,
+              "sha256": "a1998d6294323b7c9652e0052ba980c84b442a209b4b39d615eb0e4777274a8c"
+            },
+            "optimizer_progress": {
+              "bytes": 692,
+              "sha256": "ac3cca843c945a89ae044fd01beffecec4d74c80e5b0cfd974d10416695264ba"
+            },
+            "source_resume_checkpoint": {
+              "bytes": 20009,
+              "sha256": "62ab59215e3f51a76a61e7bf0c0314411b6f3a5241a03669eace90ad3d69b06c"
+            },
+            "qtail_resume_checkpoint": {
+              "bytes": 19979,
+              "sha256": "2a7845993c2ee111b0af73b06ad9fa6facc58bab2ff670793ae7bf059b1f3414"
+            }
+          }
+        }
+      },
+      "synthesis": {
+        "valid": true,
+        "completed_at": "2026-08-12T04:15:30.947703+00:00",
+        "error": null,
+        "evidence": {
+          "validation_valid": true,
+          "winner": "qtail_synthetic",
+          "artifact_count": 7,
+          "parent_training_marker": {
+            "bytes": 1638,
+            "sha256": "1669e32f17c6896ee1d05eb025f1a4137c45fc612abb3c7d9d7ed9b27fa4c344"
+          },
+          "customer_input": {
+            "bytes": 412,
+            "sha256": "d4d27bc8c2d18a934bcda78b4838d38b7ab9eaf480f02fefac4e8344e451cd69"
+          },
+          "artifacts": {
+            "qtail_service_delivery_report.json": {
+              "bytes": 5762,
+              "sha256": "989c1b9130502e55f3c04edb5f4fc69663665d8125aae558e1519d1d0c0dbdfd"
+            },
+            "qtail_service_synthetic_plan.csv": {
+              "bytes": 3738,
+              "sha256": "c36e48efb6f1d3d509df1d0051f2bea9621feae516f996aa75325af08088cdcb"
+            },
+            "qtail_synthetic_data.csv": {
+              "bytes": 1151,
+              "sha256": "3440e7cc9b8fef2d7ca5af34e42f03337ee058b0e350c290bae1470f70f5889c"
+            },
+            "qtail_service_model_card.json": {
+              "bytes": 9465,
+              "sha256": "a28a8299939ff23d476eaf4acc0f496493a2f3bd3ea9fc72e3b539b86beaf309"
+            },
+            "qtail_data_engine_report.json": {
+              "bytes": 9589,
+              "sha256": "5bcc62925e301768b4c486dda43250409affd107c7da472179ea78d95b6c6f30"
+            },
+            "README_QTAIL_DELIVERY.md": {
+              "bytes": 4449,
+              "sha256": "a420e3c185de0e3897c7616e61d58e6a38e74212b08d605dae20ffe5c1254231"
+            },
+            "qtail_delivery_package.zip": {
+              "bytes": 14455,
+              "sha256": "77bd1a37dcb61e57a5468e7c3d7ec161145af41c2f63938d3c5f28ea2ac1010d"
+            }
+          }
+        }
+      }
+    },
+    "final_page_qa": {
+      "valid": true,
+      "generated_at": "2026-08-12T04:50:59.840737+00:00",
+      "error": null,
+      "evidence": {
+        "page_source_sha256": "7887e5a3495402f9a6bbec9a45de50193b2b1ba61178a4c2c35987d5e170e56f",
+        "synthesis_marker_sha256": "e9290a7bba26bb1880705e1b8763b8ca8cf505eae2406a70d9887fda8e0999bf",
+        "required_completion_checks": [
+          "official_selection_manifest",
+          "direct_transport_isolation",
+          "cross_restart_supervision",
+          "download_and_official_md5",
+          "model_training",
+          "long_tail_synthesis"
+        ],
+        "required_page_tokens": [
+          "Open X 1 TiB 扩展流水线",
+          "官方 MD5 门禁",
+          "模型训练",
+          "长尾分配计划",
+          "原始样本生成器",
+          "阶段哈希链",
+          "本轮分配流水线完成审计"
+        ],
+        "public_http_status": {
+          "/qtail-openx-training": 200,
+          "/results/openx_1t_expansion/status.json": 200,
+          "/results/openx_1t_expansion/synthesis/qtail_service_delivery_report.json": 200,
+          "/results/openx_1t_expansion/synthesis/qtail_service_synthetic_plan.csv": 200,
+          "/results/openx_1t_expansion/synthesis/qtail_synthetic_data.csv": 200,
+          "/results/openx_1t_expansion/synthesis/qtail_service_model_card.json": 200,
+          "/results/openx_1t_expansion/synthesis/qtail_data_engine_report.json": 200,
+          "/results/openx_1t_expansion/synthesis/README_QTAIL_DELIVERY.md": 200,
+          "/results/openx_1t_expansion/synthesis/qtail_delivery_package.zip": 200
+        }
+      }
+    }
+  },
+  "disk": {
+    "total_bytes": 6145124052992,
+    "used_bytes": 4987997532160,
+    "free_bytes": 1157126520832,
+    "free_tib": 1.052,
+    "remaining_download_bytes": 0,
+    "projected_free_after_download_bytes": 1157126520832,
+    "projected_free_after_download_tib": 1.052,
+    "reserve_free_bytes": 966367641600,
+    "projected_headroom_after_download_bytes": 190758879232,
+    "projected_headroom_after_download_gib": 177.658,
+    "projected_capacity_passed": true
+  },
+  "claim_boundary": "The trained artifact is an Open X record-informed long-tail allocation head, not an end-to-end robot policy.",
+  "logs": {
+    "pipeline_tail": [
+      "  ],",
+      "  \"delivery_report\": \"/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis/qtail_service_delivery_report.json\",",
+      "  \"readme\": \"/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis/README_QTAIL_DELIVERY.md\",",
+      "  \"package_zip\": \"/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis/qtail_delivery_package.zip\"",
+      "}",
+      "{",
+      "  \"report_path\": \"/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/synthesis/qtail_data_engine_report.json\",",
+      "  \"valid\": true,",
+      "  \"errors\": [],",
+      "  \"winner\": \"qtail_synthetic\",",
+      "  \"test_passed\": true,",
+      "  \"profile_count\": 10",
+      "}",
+      "{\"valid\": true, \"format_version\": \"qtail_openx_1t_stage_marker_v1\", \"stage\": \"synthesis\", \"completed_at\": \"2026-08-12T04:15:30.947703+00:00\", \"evidence\": {\"validation_valid\": true, \"winner\": \"qtail_synthetic\", \"artifact_count\": 7, \"parent_training_marker\": {\"bytes\": 1638, \"sha256\": \"1669e32f17c6896ee1d05eb025f1a4137c45fc612abb3c7d9d7ed9b27fa4c344\"}, \"customer_input\": {\"bytes\": 412, \"sha256\": \"d4d27bc8c2d18a934bcda78b4838d38b7ab9eaf480f02fefac4e8344e451cd69\"}, \"artifacts\": {\"qtail_service_delivery_report.json\": {\"bytes\": 5762, \"sha256\": \"989c1b9130502e55f3c04edb5f4fc69663665d8125aae558e1519d1d0c0dbdfd\"}, \"qtail_service_synthetic_plan.csv\": {\"bytes\": 3738, \"sha256\": \"c36e48efb6f1d3d509df1d0051f2bea9621feae516f996aa75325af08088cdcb\"}, \"qtail_synthetic_data.csv\": {\"bytes\": 1151, \"sha256\": \"3440e7cc9b8fef2d7ca5af34e42f03337ee058b0e350c290bae1470f70f5889c\"}, \"qtail_service_model_card.json\": {\"bytes\": 9465, \"sha256\": \"a28a8299939ff23d476eaf4acc0f496493a2f3bd3ea9fc72e3b539b86beaf309\"}, \"qtail_data_engine_report.json\": {\"bytes\": 9589, \"sha256\": \"5bcc62925e301768b4c486dda43250409affd107c7da472179ea78d95b6c6f30\"}, \"README_QTAIL_DELIVERY.md\": {\"bytes\": 4449, \"sha256\": \"a420e3c185de0e3897c7616e61d58e6a38e74212b08d605dae20ffe5c1254231\"}, \"qtail_delivery_package.zip\": {\"bytes\": 14455, \"sha256\": \"77bd1a37dcb61e57a5468e7c3d7ec161145af41c2f63938d3c5f28ea2ac1010d\"}}}}",
+      "[2026-08-12T04:15:30Z] Open X 1 TiB expansion training and long-tail synthesis complete; projecting page",
+      "{\"status\": \"running\", \"stage\": \"completion_audit_failed\"}",
+      "{\"format_version\": \"qtail_openx_1t_final_page_qa_v1\", \"generated_at\": \"2026-08-12T04:15:31.397954+00:00\", \"valid\": true, \"claim_boundary\": \"This proves the local page, status ledger, and final artifacts are projected over HTTP; it does not extend the model claim boundary.\", \"evidence\": {\"page_source_sha256\": \"0173ad537fea0fe3dccc6f78457f9ebac0b8118c197405b59826ee87ffe42ae9\", \"synthesis_marker_sha256\": \"e9290a7bba26bb1880705e1b8763b8ca8cf505eae2406a70d9887fda8e0999bf\", \"required_completion_checks\": [\"official_selection_manifest\", \"direct_transport_isolation\", \"cross_restart_supervision\", \"download_and_official_md5\", \"model_training\", \"long_tail_synthesis\"], \"required_page_tokens\": [\"Open X 1 TiB 扩展流水线\", \"官方 MD5 门禁\", \"模型训练\", \"长尾合成数据\", \"阶段哈希链\", \"本轮最终完成审计\"], \"public_http_status\": {\"/qtail-openx-training\": 200, \"/results/openx_1t_expansion/status.json\": 200, \"/results/openx_1t_expansion/synthesis/qtail_service_delivery_report.json\": 200, \"/results/openx_1t_expansion/synthesis/qtail_service_synthetic_plan.csv\": 200, \"/results/openx_1t_expansion/synthesis/qtail_synthetic_data.csv\": 200, \"/results/openx_1t_expansion/synthesis/qtail_service_model_card.json\": 200, \"/results/openx_1t_expansion/synthesis/qtail_data_engine_report.json\": 200, \"/results/openx_1t_expansion/synthesis/README_QTAIL_DELIVERY.md\": 200, \"/results/openx_1t_expansion/synthesis/qtail_delivery_package.zip\": 200}}}",
+      "{\"status\": \"complete\", \"stage\": \"complete\"}",
+      "{\"valid\": true, \"generated_at\": \"2026-08-12T04:15:31.397954+00:00\", \"error\": null, \"evidence\": {\"page_source_sha256\": \"0173ad537fea0fe3dccc6f78457f9ebac0b8118c197405b59826ee87ffe42ae9\", \"synthesis_marker_sha256\": \"e9290a7bba26bb1880705e1b8763b8ca8cf505eae2406a70d9887fda8e0999bf\", \"required_completion_checks\": [\"official_selection_manifest\", \"direct_transport_isolation\", \"cross_restart_supervision\", \"download_and_official_md5\", \"model_training\", \"long_tail_synthesis\"], \"required_page_tokens\": [\"Open X 1 TiB 扩展流水线\", \"官方 MD5 门禁\", \"模型训练\", \"长尾合成数据\", \"阶段哈希链\", \"本轮最终完成审计\"], \"public_http_status\": {\"/qtail-openx-training\": 200, \"/results/openx_1t_expansion/status.json\": 200, \"/results/openx_1t_expansion/synthesis/qtail_service_delivery_report.json\": 200, \"/results/openx_1t_expansion/synthesis/qtail_service_synthetic_plan.csv\": 200, \"/results/openx_1t_expansion/synthesis/qtail_synthetic_data.csv\": 200, \"/results/openx_1t_expansion/synthesis/qtail_service_model_card.json\": 200, \"/results/openx_1t_expansion/synthesis/qtail_data_engine_report.json\": 200, \"/results/openx_1t_expansion/synthesis/README_QTAIL_DELIVERY.md\": 200, \"/results/openx_1t_expansion/synthesis/qtail_delivery_package.zip\": 200}}}",
+      "[2026-08-12T04:15:31Z] Open X final page projection verified"
+    ]
+  }
+}

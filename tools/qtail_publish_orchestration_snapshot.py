@@ -69,6 +69,7 @@ def build_stage(
     repo_root: Path,
     snapshot: Path,
     stage: Path,
+    includes: list[Path],
 ) -> tuple[list[Path], str]:
     paths = existing_relative_paths(snapshot)
     publisher = Path(__file__).resolve()
@@ -78,6 +79,17 @@ def build_stage(
         raise SystemExit(
             f"publisher is outside repo root: {publisher}"
         ) from error
+    for include in includes:
+        resolved = include.resolve()
+        try:
+            relative = resolved.relative_to(repo_root.resolve())
+        except ValueError as error:
+            raise SystemExit(
+                f"included source is outside repo root: {resolved}"
+            ) from error
+        if not resolved.is_file():
+            raise SystemExit(f"included workspace source is missing: {resolved}")
+        paths.add(relative)
 
     if stage.exists():
         shutil.rmtree(stage)
@@ -137,6 +149,13 @@ def main() -> None:
     parser.add_argument("--job-root", type=Path, required=True)
     parser.add_argument("--snapshot-dir", type=Path)
     parser.add_argument("--out", type=Path)
+    parser.add_argument(
+        "--include",
+        type=Path,
+        action="append",
+        default=[],
+        help="Add a workspace source file to the preserved snapshot.",
+    )
     args = parser.parse_args()
 
     repo_root = args.repo_root.resolve()
@@ -161,7 +180,12 @@ def main() -> None:
     payload: dict = {}
     swapped = False
     try:
-        paths, manifest_hash = build_stage(repo_root, snapshot, stage)
+        paths, manifest_hash = build_stage(
+            repo_root,
+            snapshot,
+            stage,
+            args.include,
+        )
         with lock_path.open("a+") as progress_lock:
             fcntl.flock(progress_lock.fileno(), fcntl.LOCK_EX)
             atomic_swap(stage, snapshot)

@@ -1,0 +1,38 @@
+{
+  "format_version": "qtail_openx_1t_final_page_qa_v1",
+  "generated_at": "2026-08-12T04:50:59.840737+00:00",
+  "valid": true,
+  "claim_boundary": "This proves the local page, status ledger, and final artifacts are projected over HTTP; it does not extend the model claim boundary.",
+  "evidence": {
+    "page_source_sha256": "7887e5a3495402f9a6bbec9a45de50193b2b1ba61178a4c2c35987d5e170e56f",
+    "synthesis_marker_sha256": "e9290a7bba26bb1880705e1b8763b8ca8cf505eae2406a70d9887fda8e0999bf",
+    "required_completion_checks": [
+      "official_selection_manifest",
+      "direct_transport_isolation",
+      "cross_restart_supervision",
+      "download_and_official_md5",
+      "model_training",
+      "long_tail_synthesis"
+    ],
+    "required_page_tokens": [
+      "Open X 1 TiB 扩展流水线",
+      "官方 MD5 门禁",
+      "模型训练",
+      "长尾分配计划",
+      "原始样本生成器",
+      "阶段哈希链",
+      "本轮分配流水线完成审计"
+    ],
+    "public_http_status": {
+      "/qtail-openx-training": 200,
+      "/results/openx_1t_expansion/status.json": 200,
+      "/results/openx_1t_expansion/synthesis/qtail_service_delivery_report.json": 200,
+      "/results/openx_1t_expansion/synthesis/qtail_service_synthetic_plan.csv": 200,
+      "/results/openx_1t_expansion/synthesis/qtail_synthetic_data.csv": 200,
+      "/results/openx_1t_expansion/synthesis/qtail_service_model_card.json": 200,
+      "/results/openx_1t_expansion/synthesis/qtail_data_engine_report.json": 200,
+      "/results/openx_1t_expansion/synthesis/README_QTAIL_DELIVERY.md": 200,
+      "/results/openx_1t_expansion/synthesis/qtail_delivery_package.zip": 200
+    }
+  }
+}

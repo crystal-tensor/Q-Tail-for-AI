@@ -11,6 +11,7 @@ from pathlib import Path
 
 from qtail_merge_droid_artifact_manifest import (
     HISTORICAL_OPTIONAL_ARTIFACTS,
+    MANIFEST_CONTROL_FILENAMES,
     atomic_write_json,
     build_manifest_payload,
     formal_droid_artifact_paths,
@@ -132,6 +133,40 @@ def main() -> None:
                         "required_artifact_count"
                     ]
                     == len(formal_droid_artifact_paths(result_root))
+                ),
+            }
+        )
+
+        control_paths = [
+            result_root / name for name in MANIFEST_CONTROL_FILENAMES
+        ]
+        for path in control_paths:
+            path.write_bytes(b"manifest-control")
+        manifest_with_control = {
+            **payload_with_history,
+            "artifacts": [
+                *payload_with_history["artifacts"],
+                {
+                    "path": str(control_paths[0]),
+                    "bytes": len(b"manifest-control"),
+                    "sha256": "0" * 64,
+                },
+            ],
+        }
+        payload_without_controls = build_manifest_payload(
+            manifest=manifest_with_control,
+            additions=control_paths[1:],
+            formal_root=result_root,
+        )
+        observed_paths = {
+            entry["path"] for entry in payload_without_controls["artifacts"]
+        }
+        controls.append(
+            {
+                "name": "manifest_control_files_are_excluded",
+                "passed": all(
+                    str(path.resolve()) not in observed_paths
+                    for path in control_paths
                 ),
             }
         )

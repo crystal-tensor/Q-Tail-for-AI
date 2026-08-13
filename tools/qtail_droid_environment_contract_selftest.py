@@ -14,6 +14,13 @@ from pathlib import Path
 from typing import Any
 
 
+CONTRACT_VERSION = "qtail_droid_environment_contract_selftest_v3"
+EXPECTED_BACKEND_COMMIT = "9a29c832b4c81bf38401111f5e4cdddaca217581"
+EXPECTED_BACKEND_ORIGIN = (
+    "https://github.com/droid-dataset/droid_policy_learning"
+)
+
+
 def now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -39,6 +46,26 @@ def read_json(path: Path) -> dict[str, Any]:
     return payload
 
 
+def run_checked(command: list[str]) -> dict[str, Any]:
+    result = subprocess.run(
+        command,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"Command failed ({result.returncode}): {' '.join(command)}\n"
+            f"{result.stderr.strip()}"
+        )
+    return {
+        "command": command,
+        "returncode": result.returncode,
+        "stdout": result.stdout.strip(),
+        "stderr": result.stderr.strip(),
+    }
+
+
 def run_capture(
     *,
     capture_script: Path,
@@ -51,6 +78,7 @@ def run_capture(
     transport_status: Path,
     uniclash_guard_status: Path,
     backend_root: Path,
+    orchestration_snapshot_manifest: Path,
     out: Path,
 ) -> dict[str, Any]:
     command = [
@@ -76,6 +104,8 @@ def run_capture(
         str(uniclash_guard_status),
         "--backend-root",
         str(backend_root),
+        "--orchestration-snapshot-manifest",
+        str(orchestration_snapshot_manifest),
         "--require-final-inputs",
     ]
     result = subprocess.run(
@@ -107,6 +137,9 @@ def main() -> None:
         "--uniclash-guard-status", type=Path, required=True
     )
     parser.add_argument("--backend-root", type=Path, required=True)
+    parser.add_argument(
+        "--orchestration-snapshot-manifest", type=Path, required=True
+    )
     args = parser.parse_args()
 
     capture_script = (
@@ -140,6 +173,58 @@ def main() -> None:
         dir=temporary_root,
     ) as temporary_name:
         root = Path(temporary_name)
+        backend_fixture = root / "backend_fixture"
+        clone_result = run_checked(
+            [
+                "git",
+                "clone",
+                "--shared",
+                "--no-checkout",
+                str(args.backend_root),
+                str(backend_fixture),
+            ]
+        )
+        checkout_result = run_checked(
+            [
+                "git",
+                "-C",
+                str(backend_fixture),
+                "checkout",
+                "--detach",
+                EXPECTED_BACKEND_COMMIT,
+            ]
+        )
+        run_checked(
+            [
+                "git",
+                "-C",
+                str(backend_fixture),
+                "remote",
+                "set-url",
+                "origin",
+                EXPECTED_BACKEND_ORIGIN,
+            ]
+        )
+        run_checked(
+            [
+                "git",
+                "-C",
+                str(backend_fixture),
+                "config",
+                "user.name",
+                "Q-Tail Environment Self-Test",
+            ]
+        )
+        run_checked(
+            [
+                "git",
+                "-C",
+                str(backend_fixture),
+                "config",
+                "user.email",
+                "qtail-selftest@invalid.example",
+            ]
+        )
         mini_object_manifest = {
             "status": "verified",
             "source": "gs://gresearch/robotics/droid",
@@ -214,6 +299,28 @@ def main() -> None:
             negative_byte_verification,
         )
         write_json(uniclash_negative_path, negative_uniclash_guard)
+        snapshot_negative_path = root / "orchestration_snapshot_drift.SHA256SUMS"
+        snapshot_lines = args.orchestration_snapshot_manifest.read_text(
+            encoding="utf-8"
+        ).splitlines()
+        trainer_suffix = "./tools/qtail_train_droid_full.py"
+        trainer_line_indexes = [
+            index
+            for index, line in enumerate(snapshot_lines)
+            if line.endswith(trainer_suffix)
+        ]
+        if len(trainer_line_indexes) != 1:
+            raise SystemExit(
+                "ORICO snapshot must contain exactly one trainer entry"
+            )
+        trainer_index = trainer_line_indexes[0]
+        snapshot_lines[trainer_index] = (
+            "0" * 64 + "  " + trainer_suffix
+        )
+        snapshot_negative_path.write_text(
+            "\n".join(snapshot_lines) + "\n",
+            encoding="utf-8",
+        )
 
         positive = run_capture(
             capture_script=capture_script,
@@ -225,8 +332,25 @@ def main() -> None:
             verification=verification_path,
             transport_status=args.transport_status,
             uniclash_guard_status=args.uniclash_guard_status,
-            backend_root=args.backend_root,
+            backend_root=backend_fixture,
+            orchestration_snapshot_manifest=(
+                args.orchestration_snapshot_manifest
+            ),
             out=root / "environment_positive.json",
+        )
+        negative_snapshot = run_capture(
+            capture_script=capture_script,
+            repo_root=args.repo_root,
+            job_root=args.job_root,
+            pt_source=args.pt_source,
+            object_manifest=object_path,
+            checksum_manifest=checksum_path,
+            verification=verification_path,
+            transport_status=args.transport_status,
+            uniclash_guard_status=args.uniclash_guard_status,
+            backend_root=backend_fixture,
+            orchestration_snapshot_manifest=snapshot_negative_path,
+            out=root / "environment_negative_snapshot.json",
         )
         negative_byte = run_capture(
             capture_script=capture_script,
@@ -238,7 +362,10 @@ def main() -> None:
             verification=verification_negative_path,
             transport_status=args.transport_status,
             uniclash_guard_status=args.uniclash_guard_status,
-            backend_root=args.backend_root,
+            backend_root=backend_fixture,
+            orchestration_snapshot_manifest=(
+                args.orchestration_snapshot_manifest
+            ),
             out=root / "environment_negative_byte.json",
         )
         negative_checksum = run_capture(
@@ -251,7 +378,10 @@ def main() -> None:
             verification=verification_path,
             transport_status=args.transport_status,
             uniclash_guard_status=args.uniclash_guard_status,
-            backend_root=args.backend_root,
+            backend_root=backend_fixture,
+            orchestration_snapshot_manifest=(
+                args.orchestration_snapshot_manifest
+            ),
             out=root / "environment_negative_checksum.json",
         )
         negative_uniclash = run_capture(
@@ -264,7 +394,10 @@ def main() -> None:
             verification=verification_path,
             transport_status=args.transport_status,
             uniclash_guard_status=uniclash_negative_path,
-            backend_root=args.backend_root,
+            backend_root=backend_fixture,
+            orchestration_snapshot_manifest=(
+                args.orchestration_snapshot_manifest
+            ),
             out=root / "environment_negative_uniclash.json",
         )
         classifier_selftest_path = root / "classifier_v6_selftest.json"
@@ -288,6 +421,90 @@ def main() -> None:
             if classifier_selftest_path.is_file()
             else {}
         )
+        dirty_probe = backend_fixture / ".qtail_environment_dirty_probe"
+        dirty_probe.write_text("intentional self-test dirt\n", encoding="utf-8")
+        negative_dirty_backend = run_capture(
+            capture_script=capture_script,
+            repo_root=args.repo_root,
+            job_root=args.job_root,
+            pt_source=args.pt_source,
+            object_manifest=object_path,
+            checksum_manifest=checksum_path,
+            verification=verification_path,
+            transport_status=args.transport_status,
+            uniclash_guard_status=args.uniclash_guard_status,
+            backend_root=backend_fixture,
+            orchestration_snapshot_manifest=(
+                args.orchestration_snapshot_manifest
+            ),
+            out=root / "environment_negative_dirty_backend.json",
+        )
+        dirty_probe.unlink()
+        run_checked(
+            [
+                "git",
+                "-C",
+                str(backend_fixture),
+                "remote",
+                "set-url",
+                "origin",
+                "https://example.invalid/not-official",
+            ]
+        )
+        negative_backend_origin = run_capture(
+            capture_script=capture_script,
+            repo_root=args.repo_root,
+            job_root=args.job_root,
+            pt_source=args.pt_source,
+            object_manifest=object_path,
+            checksum_manifest=checksum_path,
+            verification=verification_path,
+            transport_status=args.transport_status,
+            uniclash_guard_status=args.uniclash_guard_status,
+            backend_root=backend_fixture,
+            orchestration_snapshot_manifest=(
+                args.orchestration_snapshot_manifest
+            ),
+            out=root / "environment_negative_backend_origin.json",
+        )
+        run_checked(
+            [
+                "git",
+                "-C",
+                str(backend_fixture),
+                "remote",
+                "set-url",
+                "origin",
+                EXPECTED_BACKEND_ORIGIN,
+            ]
+        )
+        drift_commit_result = run_checked(
+            [
+                "git",
+                "-C",
+                str(backend_fixture),
+                "commit",
+                "--allow-empty",
+                "-m",
+                "intentional environment self-test commit drift",
+            ]
+        )
+        negative_backend_commit = run_capture(
+            capture_script=capture_script,
+            repo_root=args.repo_root,
+            job_root=args.job_root,
+            pt_source=args.pt_source,
+            object_manifest=object_path,
+            checksum_manifest=checksum_path,
+            verification=verification_path,
+            transport_status=args.transport_status,
+            uniclash_guard_status=args.uniclash_guard_status,
+            backend_root=backend_fixture,
+            orchestration_snapshot_manifest=(
+                args.orchestration_snapshot_manifest
+            ),
+            out=root / "environment_negative_backend_commit.json",
+        )
 
     checks = {
         "positive_control_completes": (
@@ -300,6 +517,14 @@ def main() -> None:
             and negative_byte["environment_status"] == "failed"
             and negative_byte["gates"].get(
                 "download_verification_semantic_passed"
+            )
+            is False
+        ),
+        "orchestration_snapshot_code_drift_fails": (
+            negative_snapshot["returncode"] != 0
+            and negative_snapshot["environment_status"] == "failed"
+            and negative_snapshot["gates"].get(
+                "orchestration_snapshot_code_parity_passed"
             )
             is False
         ),
@@ -326,11 +551,48 @@ def main() -> None:
             == "droid_transport_downloader_descendants_v6_interface_bound_live"
             and all(classifier_selftest.get("checks", {}).values())
         ),
+        "backend_commit_drift_fails": (
+            negative_backend_commit["returncode"] != 0
+            and negative_backend_commit["environment_status"] == "failed"
+            and negative_backend_commit["gates"].get(
+                "backend_commit_pinned"
+            )
+            is False
+            and negative_backend_commit["gates"].get(
+                "backend_worktree_clean"
+            )
+            is True
+        ),
+        "backend_origin_drift_fails": (
+            negative_backend_origin["returncode"] != 0
+            and negative_backend_origin["environment_status"] == "failed"
+            and negative_backend_origin["gates"].get(
+                "backend_origin_official"
+            )
+            is False
+        ),
+        "backend_worktree_dirty_fails": (
+            negative_dirty_backend["returncode"] != 0
+            and negative_dirty_backend["environment_status"] == "failed"
+            and negative_dirty_backend["gates"].get(
+                "backend_worktree_clean"
+            )
+            is False
+        ),
     }
     passed = all(checks.values())
     payload = {
         "generated_at": now(),
+        "contract_version": CONTRACT_VERSION,
         "status": "passed" if passed else "failed",
+        "backend_fixture": {
+            "source": str(args.backend_root),
+            "expected_commit": EXPECTED_BACKEND_COMMIT,
+            "expected_origin": EXPECTED_BACKEND_ORIGIN,
+            "clone_returncode": clone_result["returncode"],
+            "checkout_returncode": checkout_result["returncode"],
+            "drift_commit_returncode": drift_commit_result["returncode"],
+        },
         "fixture": {
             "relative_path": relative,
             "expected_bytes": expected_bytes,
@@ -341,6 +603,9 @@ def main() -> None:
         "negative_byte_control": negative_byte,
         "negative_checksum_control": negative_checksum,
         "negative_uniclash_control": negative_uniclash,
+        "negative_backend_commit_control": negative_backend_commit,
+        "negative_backend_origin_control": negative_backend_origin,
+        "negative_backend_worktree_control": negative_dirty_backend,
         "transport_classifier_v6_selftest": classifier_selftest,
     }
     atomic_write_json(args.out, payload)

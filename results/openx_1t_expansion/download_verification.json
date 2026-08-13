@@ -1,0 +1,29 @@
+{
+  "format_version": "qtail_openx_expansion_verification_v1",
+  "generated_at": "2026-08-12T04:13:09.642788+00:00",
+  "status": "verified",
+  "checks": {
+    "manifest_verified": true,
+    "checksum_manifest_verified": true,
+    "manifest_checksum_paths_match": true,
+    "all_objects_complete": true,
+    "all_bytes_complete": true,
+    "all_md5_ledger_entries_current": true,
+    "no_selected_partials": true,
+    "no_missing_objects": true,
+    "no_size_mismatches": true
+  },
+  "checks_passed": 9,
+  "checks_total": 9,
+  "expected_objects": 3126,
+  "complete_objects": 3126,
+  "md5_verified_objects": 3126,
+  "expected_bytes": 1099405385580,
+  "complete_bytes": 1099405385580,
+  "progress_percent": 100.0,
+  "missing": [],
+  "size_mismatch": [],
+  "ledger_mismatch": [],
+  "partials": [],
+  "claim_boundary": "MD5 content was computed by the downloader and is accepted here only when the official hash, generation, size, mtime and ctime still match."
+}

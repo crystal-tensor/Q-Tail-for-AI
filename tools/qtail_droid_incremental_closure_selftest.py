@@ -170,21 +170,6 @@ def main() -> None:
         baseline_deferred_count = int(
             cases[0]["deferred_after_snapshot_count"]
         )
-        baseline_formal_gate = bool(
-            cases[0]["formal_full_mirror_gate"]
-        )
-        cases.append(
-            run_case(
-                name="require_formal_matches_exact_full_gate",
-                paths=frozen_base,
-                expected_success=baseline_formal_gate,
-                expected_failed_check=None,
-                expected_formal_gate=baseline_formal_gate,
-                require_formal=True,
-                directory=directory,
-            )
-        )
-
         bad_records = read_json(frozen_base["record_audit"])
         bad_records["verified_decoded_records"] = (
             int(bad_records.get("verified_decoded_records", 0)) + 1
@@ -343,15 +328,28 @@ def main() -> None:
         ).isoformat()
         deferred_ledger_path = directory / "deferred-checksum-ledger.json"
         write_json(deferred_ledger_path, deferred_ledger)
+        deferred_paths = {
+            **frozen_base,
+            "checksum_ledger": deferred_ledger_path,
+            "cache_manifest": deferred_cache_path,
+            "record_audit": deferred_record_audit_path,
+        }
+        cases.append(
+            run_case(
+                name="require_formal_matches_exact_full_gate",
+                paths=deferred_paths,
+                expected_success=False,
+                expected_failed_check=None,
+                expected_deferred_count=baseline_deferred_count + 1,
+                expected_formal_gate=False,
+                require_formal=True,
+                directory=directory,
+            )
+        )
         cases.append(
             run_case(
                 name="post_snapshot_tfrecord_is_deferred",
-                paths={
-                    **frozen_base,
-                    "checksum_ledger": deferred_ledger_path,
-                    "cache_manifest": deferred_cache_path,
-                    "record_audit": deferred_record_audit_path,
-                },
+                paths=deferred_paths,
                 expected_success=True,
                 expected_failed_check=None,
                 expected_deferred_count=baseline_deferred_count + 1,

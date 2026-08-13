@@ -98,6 +98,11 @@ def launcher_source_valid(source: str) -> bool:
         "/usr/bin/screen -dmS \"$WEB_SUPERVISOR_SESSION\" \\\n"
         "    /bin/zsh -lc \"exec /bin/zsh '$WEB_SERVICES'\""
     )
+    write_probe = 'printf \'%s\\n\' "$$" > "$probe_path"'
+    write_access_guard = "if ! probe_orico_write_access; then"
+    write_access_refusal = (
+        "ORICO write access unavailable; refusing to supervise or replace workers"
+    )
     progress_call = (
         'qtail-droid-progress \\\n'
         '  "$PROGRESS_LOOP" \\\n'
@@ -127,6 +132,11 @@ def launcher_source_valid(source: str) -> bool:
     )
     required = [
         'MARKER_ROOT="/Volumes/ORICO/qtail_full_training/manifests"',
+        'ORICO_WRITE_PROBE="$JOB_ROOT/.qtail-launcher-write-probe.$$"',
+        "probe_orico_write_access() {",
+        write_probe,
+        write_access_guard,
+        write_access_refusal,
         "file_fresh() {",
         'local target_path="$1"',
         "progress_healthy() {",
@@ -158,7 +168,9 @@ def launcher_source_valid(source: str) -> bool:
     if not all(token in source for token in required):
         return False
     return bool(
-        source.index(mount_guard) < source.index(web_services)
+        source.index(mount_guard) < source.index(write_probe)
+        and source.index(write_probe) < source.index(write_access_guard)
+        and source.index(write_access_guard) < source.index(web_services)
         and source.index(web_services) < source.index(progress_call)
         and source.index(progress_call) < source.index(prewarm_call)
         and source.index(marker_guard) < source.index(prewarm_call)
@@ -171,6 +183,7 @@ def launcher_source_valid(source: str) -> bool:
 
 
 def web_services_source_valid(source: str) -> bool:
+    archive_call = "archive_local_supervision_logs"
     foreign_gate = (
         'if port_is_listening "$port" && ! service_owned "$port"; then'
     )
@@ -184,12 +197,42 @@ def web_services_source_valid(source: str) -> bool:
     required = [
         'PAGE_PATH="/qtail-droid-full-training"',
         'PAGE_MARKER="Q-Tail DROID Full Evidence"',
+        "archive_local_supervision_logs() {",
+        'temporary="$destination.$$.tmp"',
+        '/bin/cp -p "$source" "$temporary"',
+        '/bin/mv -f "$temporary" "$destination"',
+        (
+            "$ROOT/.tmp/qtail-droid-terminal-launcher.log|"
+            "qtail_droid_terminal_launcher.log"
+        ),
+        (
+            "$ROOT/.tmp/qtail-droid-launchd.err.log|"
+            "qtail_droid_launchd_stderr.log"
+        ),
+        (
+            "$ROOT/.tmp/qtail-droid-launchd.out.log|"
+            "qtail_droid_launchd_stdout.log"
+        ),
+        (
+            "$ROOT/.tmp/qtail-uniclash-guard.err.log|"
+            "qtail_uniclash_guard_stderr.log"
+        ),
+        (
+            "$ROOT/.tmp/qtail-uniclash-guard.out.log|"
+            "qtail_uniclash_guard_stdout.log"
+        ),
+        (
+            "$ROOT/.tmp/qtail-web-services.log|"
+            "qtail_web_services_local.log"
+        ),
         "service_owned() {",
         "content_healthy() {",
         "service_healthy() {",
         '"http://127.0.0.1:$port$PAGE_PATH"',
         '/usr/bin/grep -Fq "$PAGE_MARKER"',
         'if service_healthy "$port"; then',
+        'expected="node $SERVE --symlinks -l tcp://0.0.0.0:$port"',
+        "exec '$SERVE' --symlinks -l tcp://0.0.0.0:$port",
         foreign_gate,
         foreign_refusal,
         stop_owned_session,
@@ -200,7 +243,9 @@ def web_services_source_valid(source: str) -> bool:
     if not all(token in source for token in required):
         return False
     return bool(
-        source.index(foreign_gate) < source.index(stop_owned_session)
+        source.rindex(archive_call)
+        < source.index("ensure_service 54655 qtail-web-54655")
+        and source.index(foreign_gate) < source.index(stop_owned_session)
         and source.index(foreign_refusal) < source.index(stop_owned_session)
         and source.index(stop_owned_session)
         < source.index(start_owned_session)
@@ -246,6 +291,81 @@ def generation_handoff_source_valid(source: str) -> bool:
         and source.index(marker_exists) < source.index(marker_verifier)
         and source.index(marker_verifier) < source.index(marker_success)
         and source.index(marker_wait) < source.index(command_gate)
+    )
+
+
+def generation_handoff_convergence_source_valid(
+    *,
+    handoff_source: str,
+    watchdog_source: str,
+    pipeline_source: str,
+    prewarm_source: str,
+) -> bool:
+    watchdog_restart = (
+        "/usr/bin/screen -dmS qtail-droid-watchdog \\\n"
+        '  /bin/zsh -lc "exec /bin/zsh \'$WATCHDOG\'"'
+    )
+    handoff_prewarm_wait = (
+        'while pgrep -f -x "$EXPECTED_PREWARM_COMMAND" '
+        ">/dev/null 2>&1; do"
+    )
+    pipeline_restart = (
+        'printf \'[%s] pipeline missing; restarting\\n\' '
+        '"$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$LOG"'
+    )
+    pipeline_spawn = '/bin/zsh "$PIPELINE" >> "$LOG" 2>&1 &'
+    pre_checksum_generation_gate = (
+        'if ! require_pipeline_generation_marker "pre-checksum"; then'
+    )
+    checksum_commit = "if ! commit_checksum_marker; then"
+    formal_prewarm_wait = (
+        'while pgrep -f -x "/bin/zsh $PREWARM_LOOP" '
+        ">/dev/null 2>&1; do"
+    )
+    prewarm_checksum_guard = (
+        'if [ -f "$MARKER_ROOT/DROID_CHECKSUM_VERIFIED" ]; then'
+    )
+    prewarm_exit_heartbeat = (
+        'write_heartbeat "checksum_verified_exit" '
+        '"$LAST_SHARD_COUNT" 0'
+    )
+    prewarm_exit = "exit 0"
+    required_by_source = [
+        (handoff_source, [watchdog_restart, handoff_prewarm_wait]),
+        (watchdog_source, [pipeline_restart, pipeline_spawn]),
+        (
+            pipeline_source,
+            [
+                pre_checksum_generation_gate,
+                checksum_commit,
+                formal_prewarm_wait,
+            ],
+        ),
+        (
+            prewarm_source,
+            [
+                prewarm_checksum_guard,
+                prewarm_exit_heartbeat,
+                prewarm_exit,
+            ],
+        ),
+    ]
+    if not all(
+        all(token in source for token in required)
+        for source, required in required_by_source
+    ):
+        return False
+    return bool(
+        handoff_source.index(watchdog_restart)
+        < handoff_source.index(handoff_prewarm_wait)
+        and watchdog_source.index(pipeline_restart)
+        < watchdog_source.index(pipeline_spawn)
+        and pipeline_source.index(pre_checksum_generation_gate)
+        < pipeline_source.rindex(checksum_commit)
+        < pipeline_source.index(formal_prewarm_wait)
+        and prewarm_source.index(prewarm_checksum_guard)
+        < prewarm_source.index(prewarm_exit_heartbeat)
+        < prewarm_source.index(prewarm_exit)
     )
 
 
@@ -306,6 +426,18 @@ def main() -> None:
     generation_handoff_source = generation_handoff_path.read_text(
         encoding="utf-8"
     )
+    pipeline_path = (
+        Path(__file__).resolve().parents[1]
+        / "scripts"
+        / "qtail_orico_full_pipeline.sh"
+    )
+    pipeline_source = pipeline_path.read_text(encoding="utf-8")
+    prewarm_path = (
+        Path(__file__).resolve().parents[1]
+        / "scripts"
+        / "qtail_droid_feature_prewarm_loop.sh"
+    )
+    prewarm_source = prewarm_path.read_text(encoding="utf-8")
     missing_marker_guard = watchdog_source.replace(
         'if [ -f "$DOWNLOAD_MARKER" ]; then',
         'if false; then',
@@ -319,6 +451,11 @@ def main() -> None:
     launcher_missing_mount_guard = launcher_source.replace(
         'if ! /sbin/mount | /usr/bin/grep -Fq '
         '" on /Volumes/ORICO ("; then',
+        "if false; then",
+        1,
+    )
+    launcher_without_write_access_guard = launcher_source.replace(
+        "if ! probe_orico_write_access; then",
         "if false; then",
         1,
     )
@@ -367,6 +504,10 @@ def main() -> None:
         "if false; then",
         1,
     )
+    web_services_without_symlink_resolution = web_services_source.replace(
+        " --symlinks",
+        "",
+    )
     handoff_without_unique_watchdog = generation_handoff_source.replace(
         'if [ "${#watchdog_pids[@]}" -ne 1 ]; then',
         "if false; then",
@@ -381,6 +522,27 @@ def main() -> None:
     handoff_without_marker_binding = generation_handoff_source.replace(
         '"$PYTHON" "$DOWNLOAD_MARKER_VERIFIER"',
         ": # semantic download-marker verifier removed",
+        1,
+    )
+    handoff_without_early_watchdog = generation_handoff_source.replace(
+        "/usr/bin/screen -dmS qtail-droid-watchdog \\\n"
+        '  /bin/zsh -lc "exec /bin/zsh \'$WATCHDOG\'"',
+        ": # current-generation watchdog start removed",
+        1,
+    )
+    watchdog_without_pipeline_restart = watchdog_source.replace(
+        '/bin/zsh "$PIPELINE" >> "$LOG" 2>&1 &',
+        ": # current-generation pipeline restart removed",
+        1,
+    )
+    pipeline_without_pretraining_checksum_commit = pipeline_source.replace(
+        "if ! commit_checksum_marker; then",
+        "if false; then",
+        pipeline_source.count("if ! commit_checksum_marker; then"),
+    )
+    prewarm_without_checksum_exit = prewarm_source.replace(
+        'if [ -f "$MARKER_ROOT/DROID_CHECKSUM_VERIFIED" ]; then',
+        "if false; then",
         1,
     )
 
@@ -444,6 +606,9 @@ def main() -> None:
         "source_without_resume_or_mount_contract_is_rejected": (
             not watchdog_handoff_source_valid(missing_marker_guard)
             and not launcher_source_valid(launcher_missing_mount_guard)
+            and not launcher_source_valid(
+                launcher_without_write_access_guard
+            )
             and not launcher_source_valid(launcher_missing_resume_call)
             and not launcher_source_valid(launcher_missing_marker_guard)
             and not launcher_source_valid(launcher_without_freshness)
@@ -454,6 +619,9 @@ def main() -> None:
             )
             and not web_services_source_valid(
                 web_services_without_foreign_listener_gate
+            )
+            and not web_services_source_valid(
+                web_services_without_symlink_resolution
             )
         ),
         "source_without_pipeline_pid_binding_is_rejected": (
@@ -474,24 +642,65 @@ def main() -> None:
                 handoff_without_marker_binding
             )
         ),
+        "generation_handoff_checksum_convergence_contract_passes": (
+            generation_handoff_convergence_source_valid(
+                handoff_source=generation_handoff_source,
+                watchdog_source=watchdog_source,
+                pipeline_source=pipeline_source,
+                prewarm_source=prewarm_source,
+            )
+        ),
+        "generation_handoff_missing_convergence_edge_is_rejected": (
+            not generation_handoff_convergence_source_valid(
+                handoff_source=handoff_without_early_watchdog,
+                watchdog_source=watchdog_source,
+                pipeline_source=pipeline_source,
+                prewarm_source=prewarm_source,
+            )
+            and not generation_handoff_convergence_source_valid(
+                handoff_source=generation_handoff_source,
+                watchdog_source=watchdog_without_pipeline_restart,
+                pipeline_source=pipeline_source,
+                prewarm_source=prewarm_source,
+            )
+            and not generation_handoff_convergence_source_valid(
+                handoff_source=generation_handoff_source,
+                watchdog_source=watchdog_source,
+                pipeline_source=pipeline_without_pretraining_checksum_commit,
+                prewarm_source=prewarm_source,
+            )
+            and not generation_handoff_convergence_source_valid(
+                handoff_source=generation_handoff_source,
+                watchdog_source=watchdog_source,
+                pipeline_source=pipeline_source,
+                prewarm_source=prewarm_without_checksum_exit,
+            )
+        ),
     }
     payload = {
         "generated_at": now(),
         "status": "passed" if all(checks.values()) else "failed",
-        "control": "droid_runtime_process_contract_v8",
+        "control": "droid_runtime_process_contract_v11",
         "checks": checks,
         "checks_passed": sum(value is True for value in checks.values()),
         "checks_total": len(checks),
         "claim_boundary": (
             "This proves process-count, heartbeat, handoff-target, and "
-            "launcher mount/resume, PID-bound prewarm liveness, watchdog "
+            "launcher mount/write-permission/resume, PID-bound prewarm "
+            "liveness, watchdog "
             "self-healing, exact handoff "
             "binding, stale-loop heartbeat replacement, recursive descendant "
             "cleanup, exact Python-script process classification, content-"
-            "checked owned web-service recovery, foreign-listener refusal, and "
+            "checked owned web-service recovery, audited symlink-artifact "
+            "resolution, foreign-listener refusal, "
+            "atomic ORICO supervision-log archival, and "
             "detached-screen-safe unique ownership plus semantic download-"
-            "marker source-gate behavior on "
-            "controlled inputs. "
+            "marker source-gate behavior. It also proves the source-order "
+            "convergence path from post-download watchdog reload through "
+            "checksum-marker commit to natural prewarm exit on "
+            "controlled inputs. The launcher source gate also proves that a "
+            "macOS privacy domain that can see but cannot write ORICO exits "
+            "before stopping or replacing any worker. "
             "Live process identity is separately checked by "
             "qtail_droid_full_progress.py."
         ),

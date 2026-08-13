@@ -301,22 +301,41 @@ def submission_summary(
     incremental_effect = incremental_report.get("effect_metrics", {})
     service_effect = service_delivery.get("effect_summary", {})
     latest_api_effect = latest_api.get("effect_summary", {})
+    strong_ready = bool(strong_verification.get("ready_for_strong_training"))
+    strong_complete = bool(strong_pipeline.get("training_complete"))
+    can_claim = [
+        "Real Open X files are downloaded into data/openx_demo and monitored.",
+        "Current incremental allocation-head training uses complete files only, excluding .gstmp/.tmp/.part partial downloads.",
+        "The current Q-Tail allocation head is directionally aligned with the PT-heavy-tail goal.",
+        "The local API can turn new embodied-task CSV data into a Q-Tail synthetic allocation package.",
+        "The public customer-style service package passes the same-budget data-engine audit.",
+    ]
+    cannot_claim_yet = [
+        "Full robot-policy training has not been completed on the full RLDS/TFDS stack.",
+    ]
+    if strong_complete:
+        can_claim.extend([
+            "Strong Open X allocation-head training completed at 20000 steps.",
+            "The public service package and post-Strong customer samples use the Strong Open X snapshot.",
+        ])
+    else:
+        cannot_claim_yet.append("Final Strong 20000-step allocation-head training is not complete.")
+    if strong_ready:
+        can_claim.append("language_table and language_table_sim passed the Strong download verification gate.")
+    else:
+        cannot_claim_yet.append(
+            "language_table and language_table_sim have not both passed the Strong download verification gate."
+        )
     return {
-        "status": "ready_as_incremental_evidence"
-        if training_quality.get("clean") and service_effect.get("decision", {}).get("passed")
-        else "needs_review",
-        "can_claim": [
-            "Real Open X files are being downloaded into data/openx_demo and monitored.",
-            "Current incremental allocation-head training uses complete files only, excluding .gstmp/.tmp/.part partial downloads.",
-            "The current Q-Tail allocation head is directionally aligned with the PT-heavy-tail goal.",
-            "The local API can turn new embodied-task CSV data into a Q-Tail synthetic allocation package.",
-            "The public customer-style service package passes the same-budget data-engine audit.",
-        ],
-        "cannot_claim_yet": [
-            "Final Strong 20000-step training is not complete.",
-            "Full robot-policy training has not been completed on the full RLDS/TFDS stack.",
-            "Cannot yet claim language_table and language_table_sim are fully downloaded and verified.",
-        ],
+        "status": (
+            "ready_as_strong_allocation_evidence"
+            if strong_complete
+            else "ready_as_incremental_evidence"
+            if training_quality.get("clean") and service_effect.get("decision", {}).get("passed")
+            else "needs_review"
+        ),
+        "can_claim": can_claim,
+        "cannot_claim_yet": cannot_claim_yet,
         "headline_metrics": {
             "incremental_trainable_gib": training_quality.get("gib"),
             "incremental_rows": training_quality.get("row_count"),
@@ -328,11 +347,16 @@ def submission_summary(
             "latest_api_tail_success_gain_pp": latest_api_effect.get("tail_success_gain_pp"),
         },
         "next_trigger": {
-            "strong_training": "ready_for_strong_training=true",
+            "strong_training": (
+                "complete"
+                if strong_complete
+                else "start when ready_for_strong_training=true"
+            ),
             "incremental_refresh": "complete-file growth reaches min_growth_gib",
             "remaining_to_incremental_refresh_gib": refresh.get("remaining_to_next_refresh_gib"),
-            "strong_ready": strong_verification.get("ready_for_strong_training"),
-            "strong_training_complete": strong_pipeline.get("training_complete"),
+            "strong_ready": strong_ready,
+            "strong_training_complete": strong_complete,
+            "strong_training_status": strong_pipeline.get("training_status"),
         },
     }
 
@@ -342,6 +366,7 @@ def evidence_ledger(
     total_gib: float,
     incremental_report: dict,
     strong_report: dict,
+    strong_pipeline: dict,
     service_delivery: dict,
     strong_verification: dict,
     auto_refresh: dict,
@@ -351,13 +376,19 @@ def evidence_ledger(
     strong_effect = strong_report.get("effect_metrics", {})
     service_effect = service_delivery.get("effect_summary", {})
     latest_api_effect = latest_api.get("effect_summary", {})
+    strong_ready = bool(strong_verification.get("ready_for_strong_training"))
+    strong_complete = bool(strong_pipeline.get("training_complete"))
     return [
         {
-            "claim": "Real Open X data is being downloaded and monitored.",
-            "status": "active",
+            "claim": "Real Open X data is downloaded and monitored.",
+            "status": "complete" if strong_ready else "active",
             "evidence": f"{total_gib:.3f} GiB in data/openx_demo",
             "artifact": str(DATA_DIR),
-            "boundary": "Strong download is still in progress until both language_table datasets pass verification.",
+            "boundary": (
+                "Both language_table datasets passed verification."
+                if strong_ready
+                else "Strong download remains incomplete until both language_table datasets pass verification."
+            ),
         },
         {
             "claim": "Strong final training is gated by data completeness.",
@@ -368,12 +399,29 @@ def evidence_ledger(
             "boundary": "Final 20000-step run is not allowed while partial .gstmp files or missing datasets remain.",
         },
         {
-            "claim": "Current Open X trained model has learned a PT-heavy-tail allocation direction.",
-            "status": incremental_report.get("status") or "missing",
+            "claim": "Current Open X trained allocation head learned a PT-heavy-tail allocation direction.",
+            "status": (
+                strong_report.get("status")
+                if strong_complete
+                else incremental_report.get("status") or "missing"
+            ),
             "evidence": "predicted_tail_share_gain_pp="
-            + str(incremental_effect.get("predicted_tail_share_gain_pp")),
-            "artifact": str(ROOT / "results" / "openx_incremental_training_snapshot" / "openx_demo_training_report.json"),
-            "boundary": "This is the latest incremental snapshot, not the final Strong result.",
+            + str(
+                strong_effect.get("predicted_tail_share_gain_pp")
+                if strong_complete
+                else incremental_effect.get("predicted_tail_share_gain_pp")
+            ),
+            "artifact": str(
+                ROOT
+                / "results"
+                / ("openx_strong_training" if strong_complete else "openx_incremental_training_snapshot")
+                / "openx_demo_training_report.json"
+            ),
+            "boundary": (
+                "This is the completed Strong allocation-head result, not full robot-policy training."
+                if strong_complete
+                else "This is the latest incremental snapshot, not the final Strong result."
+            ),
         },
         {
             "claim": "Public customer-style service package passes same-budget audit.",
@@ -406,11 +454,19 @@ def evidence_ledger(
             "boundary": "Incremental retrain runs after the configured growth threshold is met.",
         },
         {
-            "claim": "Final Strong result will automatically replace the public service package.",
+            "claim": (
+                "Final Strong result replaced the public service package."
+                if strong_complete
+                else "Final Strong result will automatically replace the public service package."
+            ),
             "status": strong_report.get("status") or "queued",
             "evidence": "strong_steps=" + str(strong_report.get("steps")),
             "artifact": str(ROOT / "results" / "openx_strong_training" / "openx_demo_training_report.json"),
-            "boundary": "This claim becomes complete only after Strong verification and training succeed.",
+            "boundary": (
+                "Completed allocation-head evidence does not establish full robot-policy success."
+                if strong_complete
+                else "This claim becomes complete only after Strong verification and training succeed."
+            ),
         },
     ]
 
@@ -431,46 +487,67 @@ def objective_progress(
     strong_effect = strong_report.get("effect_metrics", {})
     service_effect = service_delivery.get("effect_summary", {})
     latest_api_effect = latest_api.get("effect_summary", {})
+    strong_ready = bool(strong_verification.get("ready_for_strong_training"))
+    strong_complete = bool(strong_pipeline.get("training_complete"))
     return [
         {
             "requirement": "Download real Open X data into data/ and monitor it.",
-            "status": "active",
-            "evidence": f"{total_gib:.3f} GiB downloaded; strong_ready={bool(strong_verification.get('ready_for_strong_training'))}",
+            "status": "complete" if strong_ready else "active",
+            "evidence": f"{total_gib:.3f} GiB downloaded; strong_ready={strong_ready}",
             "artifact": str(DATA_DIR),
-            "next_step": "Finish language_table and language_table_sim, then pass strong verification.",
+            "next_step": (
+                "Strong download verification passed."
+                if strong_ready
+                else "Finish language_table and language_table_sim, then pass Strong verification."
+            ),
         },
         {
             "requirement": "Start training after the download is complete.",
-            "status": "waiting_for_download"
-            if not strong_pipeline.get("training_complete")
-            else "complete",
+            "status": "complete" if strong_complete else "waiting_for_download",
             "evidence": (
                 "Strong waiter is armed; final marker="
-                + str(bool(strong_pipeline.get("training_complete")))
+                + str(strong_complete)
                 + "; wait_policy="
                 + str(strong_pipeline.get("wait_policy"))
             ),
             "artifact": str(ROOT / "results" / "openx_strong_training" / "train_after_download.log"),
-            "next_step": "The launchd waiter runs 20000-step training only after require-ready verification succeeds.",
+            "next_step": (
+                "Strong allocation-head training and post-training package rebuild completed."
+                if strong_complete
+                else "The launchd waiter runs 20000-step training only after require-ready verification succeeds."
+            ),
         },
         {
             "requirement": "Show what was done and every step of progress on a new page.",
             "status": "implemented",
             "evidence": "qtail-openx-training.html reads progress_manifest.json and progress_history.json.",
             "artifact": str(ROOT / "qtail-openx-training.html"),
-            "next_step": "After Strong training, the same page switches to the Strong result automatically.",
+            "next_step": (
+                "The page now reports Strong gate and training states separately."
+                if strong_complete
+                else "After Strong training, the same page switches to the Strong result automatically."
+            ),
         },
         {
             "requirement": "Explain effect and whether it matches the PT-heavy-tail embodied-AI goal.",
-            "status": "incremental_evidence",
+            "status": "strong_evidence" if strong_complete else "incremental_evidence",
             "evidence": "incremental predicted_tail_share_gain_pp="
             + str(incremental_effect.get("predicted_tail_share_gain_pp"))
             + "; strong predicted_tail_share_gain_pp="
             + str(strong_effect.get("predicted_tail_share_gain_pp"))
             + "; clean_training_rows="
             + str(training_quality.get("clean")),
-            "artifact": str(ROOT / "results" / "openx_incremental_training_snapshot" / "openx_demo_training_report.json"),
-            "next_step": "Replace incremental evidence with Strong 20000-step evidence after download completion.",
+            "artifact": str(
+                ROOT
+                / "results"
+                / ("openx_strong_training" if strong_complete else "openx_incremental_training_snapshot")
+                / "openx_demo_training_report.json"
+            ),
+            "next_step": (
+                "Keep the allocation-head claim boundary separate from full robot-policy validation."
+                if strong_complete
+                else "Replace incremental evidence with Strong 20000-step evidence after download completion."
+            ),
         },
         {
             "requirement": "Implement a data service that turns new embodied data into PT-heavy-tail synthetic data.",
@@ -491,7 +568,11 @@ def objective_progress(
             + str(service_effect.get("tail_data_share_gain_pp")),
             "artifact": service_delivery.get("package_zip")
             or str(ROOT / "results" / "qtail_openx_service_public"),
-            "next_step": "Rebuild package from Strong result when final training completes.",
+            "next_step": (
+                "Strong-calibrated package is built; proceed to customer renderer/policy pilot."
+                if strong_complete
+                else "Rebuild package from Strong result when final training completes."
+            ),
         },
         {
             "requirement": "Keep progress updated while the long download/training runs.",
@@ -519,28 +600,57 @@ def service_execution(
     incremental_effect = incremental_report.get("effect_metrics") or {}
     service_effect = service_delivery.get("effect_summary") or {}
     latest_api_effect = latest_api.get("effect_summary") or {}
+    strong_complete = bool(strong_pipeline.get("training_complete"))
     return {
         "product_thesis": (
             "Train and operate a Q-Tail model that converts customer embodied-AI data profiles "
             "into PT-heavy-tail synthetic data allocation packages, so customers can spend the "
             "same training budget on more rare/high-risk tasks."
         ),
-        "current_stage": "incremental_openx_trained_service_live",
-        "proved_now": [
-            "Real Open X shards are being downloaded and used for allocation-head training.",
-            "The current incremental model shifts predicted allocation mass toward tail shards.",
-            "The customer-facing service/API can generate auditable PT-heavy-tail data packages.",
-            "Same-budget audit packages are produced with tail success, CVaR, and tail data share metrics.",
-        ],
-        "not_proved_yet": [
-            "Final Strong 20000-step training is still gated on full language_table/language_table_sim download.",
-            "Full robot policy training on raw trajectories is not complete in this local environment.",
-            "Synthetic allocation rows still need downstream renderers/adapters to become executable robot trajectories.",
-        ],
+        "current_stage": (
+            "strong_openx_allocation_service_complete"
+            if strong_complete
+            else "incremental_openx_trained_service_live"
+        ),
+        "proved_now": (
+            [
+                "Strong Open X allocation-head training completed at 20000 steps.",
+                "The Strong checkpoint shifts predicted allocation mass toward tail shards.",
+                "The customer-facing service/API generates auditable packages from the Strong Open X snapshot.",
+                "Post-Strong customer samples and the same-budget package audit completed.",
+            ]
+            if strong_complete
+            else [
+                "Real Open X shards are being downloaded and used for allocation-head training.",
+                "The current incremental model shifts predicted allocation mass toward tail shards.",
+                "The customer-facing service/API can generate auditable PT-heavy-tail data packages.",
+                "Same-budget audit packages are produced with tail success, CVaR, and tail data share metrics.",
+            ]
+        ),
+        "not_proved_yet": (
+            [
+                "Full robot policy training on raw trajectories is not complete in this local environment.",
+                "Synthetic allocation rows still need downstream renderers/adapters to become executable robot trajectories.",
+            ]
+            if strong_complete
+            else [
+                "Final Strong 20000-step allocation-head training is not complete.",
+                "Full robot policy training on raw trajectories is not complete in this local environment.",
+                "Synthetic allocation rows still need downstream renderers/adapters to become executable robot trajectories.",
+            ]
+        ),
         "next_milestone": {
-            "trigger": "ready_for_strong_training=true",
-            "action": "run 20000-step Strong training, rebuild service package, run post-Strong customer API sample, refresh page",
-            "status": "complete" if strong_pipeline.get("training_complete") else "waiting_for_strong_download",
+            "trigger": (
+                "strong allocation-head complete"
+                if strong_complete
+                else "ready_for_strong_training=true"
+            ),
+            "action": (
+                "run full RLDS/TFDS policy-training validation and customer-specific trajectory adapter pilot"
+                if strong_complete
+                else "run 20000-step Strong training, rebuild service package, run post-Strong customer API sample, refresh page"
+            ),
+            "status": "planned_gpu_policy_stage" if strong_complete else "waiting_for_strong_download",
         },
         "metrics": {
             "downloaded_total_gib": total_gib,
@@ -602,12 +712,20 @@ def service_execution(
         "upgrade_path": [
             {
                 "milestone": "Now",
-                "status": "live_incremental_service",
-                "deliverable": "API + customer package generated from incremental Open X allocation-head snapshot",
+                "status": (
+                    "strong_allocation_service_complete"
+                    if strong_complete
+                    else "live_incremental_service"
+                ),
+                "deliverable": (
+                    "API + customer packages generated from the completed Strong Open X allocation-head snapshot"
+                    if strong_complete
+                    else "API + customer package generated from incremental Open X allocation-head snapshot"
+                ),
             },
             {
                 "milestone": "After Strong download",
-                "status": "armed",
+                "status": "complete" if strong_complete else "armed",
                 "deliverable": "20000-step Strong training, rebuilt public package, post-Strong customer API samples",
             },
             {
@@ -624,17 +742,30 @@ def service_execution(
         "layers": [
             {
                 "layer": "1. Open X evidence substrate",
-                "status": "active_downloading",
+                "status": "strong_verified" if strong_complete else "active_downloading",
                 "implemented": f"{total_gib:.3f} GiB on disk; {trainable_gib:.3f} GiB complete-file training input",
                 "artifact": str(DATA_DIR),
-                "next_step": "Finish language_table and language_table_sim, then verify Strong gate.",
+                "next_step": (
+                    "Strong download verification is complete."
+                    if strong_complete
+                    else "Finish language_table and language_table_sim, then verify Strong gate."
+                ),
             },
             {
                 "layer": "2. Q-Tail allocation-head model",
-                "status": "implemented_incremental",
+                "status": "strong_complete" if strong_complete else "implemented_incremental",
                 "implemented": "Trains on complete Open X TFRecord shards and predicts PT-heavy-tail allocation weights.",
-                "artifact": str(ROOT / "results" / "openx_incremental_training_snapshot" / "openx_demo_training_report.json"),
-                "next_step": "Replace incremental checkpoint with Strong 20000-step checkpoint after download completion.",
+                "artifact": str(
+                    ROOT
+                    / "results"
+                    / ("openx_strong_training" if strong_complete else "openx_incremental_training_snapshot")
+                    / "openx_demo_training_report.json"
+                ),
+                "next_step": (
+                    "Use the Strong checkpoint as the allocation-service source; validate full policy separately."
+                    if strong_complete
+                    else "Replace incremental checkpoint with Strong 20000-step checkpoint after download completion."
+                ),
             },
             {
                 "layer": "3. Synthetic data engine",
@@ -648,7 +779,11 @@ def service_execution(
                 "status": "implemented_live_local",
                 "implemented": "POST /generate accepts new CSV and creates a delivery package with report, model card, README, and zip.",
                 "artifact": str(ROOT / "tools" / "qtail_service_api.py"),
-                "next_step": "Keep API source selection pinned to Strong report once Strong training completes.",
+                "next_step": (
+                    "Keep API source selection pinned to the validated Strong report."
+                    if strong_complete
+                    else "Keep API source selection pinned to Strong report once Strong training completes."
+                ),
             },
             {
                 "layer": "5. Audit and claim boundary",
@@ -701,6 +836,7 @@ def gate_decision_summary(
         {},
     )
     strong_ready = bool(strong_verification.get("ready_for_strong_training"))
+    strong_complete = bool(strong_pipeline.get("training_complete"))
     incremental_ready = bool(refresh.get("will_refresh_now"))
     return [
         {
@@ -726,7 +862,13 @@ def gate_decision_summary(
                 f"language_table_sim_partial_files={language_sim.get('partial_file_count')}; "
                 f"errors={','.join(str(x) for x in strong_verification.get('errors') or [])}"
             ),
-            "next_action": "Allow 20000-step Strong training" if strong_ready else "Continue resumable gsutil rsync until .gstmp files become complete TFRecords.",
+            "next_action": (
+                "Verification complete; preserve the verified dataset manifest."
+                if strong_complete
+                else "Allow 20000-step Strong training"
+                if strong_ready
+                else "Continue resumable gsutil rsync until .gstmp files become complete TFRecords."
+            ),
         },
         {
             "gate": "Partial-byte exclusion",
@@ -741,23 +883,31 @@ def gate_decision_summary(
         },
         {
             "gate": "Strong final training",
-            "status": "complete" if strong_pipeline.get("training_complete") else "armed_waiting",
+            "status": "complete" if strong_complete else "armed_waiting",
             "release_condition": "ready_for_strong_training=true",
             "current_evidence": (
                 f"download_complete={strong_pipeline.get('download_complete')}; "
                 f"training_complete={strong_pipeline.get('training_complete')}"
             ),
-            "next_action": "Run 20000-step training and rebuild service package after verification passes.",
+            "next_action": (
+                "Strong allocation-head training and package rebuild completed; retain artifacts for audit."
+                if strong_complete
+                else "Run 20000-step training and rebuild service package after verification passes."
+            ),
         },
         {
             "gate": "Customer service package",
-            "status": "live_incremental",
+            "status": "live_strong" if strong_complete else "live_incremental",
             "release_condition": "latest validated training source is available",
             "current_evidence": (
                 f"auto_refresh_status={auto_refresh.get('status')}; "
                 f"last_refreshed_gib={auto_refresh.get('last_refreshed_gib')}"
             ),
-            "next_action": "Serve current incremental model now; switch to Strong checkpoint after final training.",
+            "next_action": (
+                "Serve the Strong-calibrated package and advance to customer-specific renderer/policy validation."
+                if strong_complete
+                else "Serve current incremental model now; switch to Strong checkpoint after final training."
+            ),
         },
     ]
 
@@ -1172,6 +1322,7 @@ def progress_history_key(row: dict) -> tuple:
         row.get("incremental_steps"),
         row.get("auto_refresh_status"),
         row.get("strong_ready"),
+        row.get("strong_training_status"),
         row.get("strong_training_complete"),
     )
 
@@ -1206,6 +1357,7 @@ def update_progress_history(manifest: dict, limit: int = 240) -> list[dict]:
         "service_tail_data_share_gain_pp": service_effect.get("tail_data_share_gain_pp"),
         "auto_refresh_status": auto_refresh.get("status"),
         "strong_ready": strong_verification.get("ready_for_strong_training"),
+        "strong_training_status": strong_pipeline.get("training_status"),
         "strong_training_complete": strong_pipeline.get("training_complete"),
     }
     history = []
@@ -1213,6 +1365,12 @@ def update_progress_history(manifest: dict, limit: int = 240) -> list[dict]:
         existing = load_json(history_path)
         if isinstance(existing.get("rows"), list):
             history = existing["rows"]
+    # Once the Strong allocation-head pipeline has completed, pre-completion
+    # waiting/ready snapshots are no longer part of the current status surface.
+    # Keep a single fresh completion snapshot so the public page cannot make
+    # historical gate states look like unfinished work.
+    if strong_pipeline.get("training_complete"):
+        history = []
     if history and progress_history_key(history[-1]) == progress_history_key(row):
         history[-1] = row
     else:
@@ -1350,6 +1508,7 @@ def write_download_status(manifest: dict, path: Path) -> None:
     strong = manifest.get("strong_download_verification") or {}
     acceleration = manifest.get("download_acceleration") or {}
     gate_decisions = manifest.get("gate_decisions") or []
+    strong_pipeline = manifest.get("strong_pipeline") or {}
 
     completed = []
     for row in data.get("datasets") or []:
@@ -1421,9 +1580,13 @@ def write_download_status(manifest: dict, path: Path) -> None:
         "",
         "## Strong Gate",
         "",
-        "Strong final training has not started yet because the verification gate is not ready."
-        if not strong.get("ready_for_strong_training")
-        else "Strong final training is allowed because the verification gate is ready.",
+        (
+            "The Strong verification gate passed and the 20000-step allocation-head training is complete."
+            if strong_pipeline.get("training_complete")
+            else "Strong final training has not started yet because the verification gate is not ready."
+            if not strong.get("ready_for_strong_training")
+            else "Strong final training is allowed because the verification gate is ready."
+        ),
         "",
     ])
     for row in completion:
@@ -1442,6 +1605,9 @@ def write_download_status(manifest: dict, path: Path) -> None:
         "",
         "## Training State",
         "",
+        f"- Strong download gate: `{strong_pipeline.get('download_gate_status', 'n/a')}`.",
+        f"- Strong allocation-head training: `{strong_pipeline.get('training_status', 'n/a')}`.",
+        f"- Strong training completion evidence: `{strong_pipeline.get('completion_evidence', {})}`.",
         f"- Latest incremental Open X snapshot used `{fmt_value(headline.get('incremental_trainable_gib'))} GiB` of complete files across `{headline.get('incremental_rows', 'n/a')}` shard rows.",
         "- Latest incremental run used `2500` steps.",
         f"- Latest incremental effect: predicted Q-Tail tail data share gain `+{fmt_value(headline.get('incremental_predicted_tail_share_gain_pp'))} pp`.",
@@ -1475,7 +1641,11 @@ def write_download_status(manifest: dict, path: Path) -> None:
         "## Automatic Triggers",
         "",
         f"- Incremental refresh runs when complete-file trainable data grows by at least `{fmt_value(refresh.get('min_growth_gib'))} GiB` or `{refresh.get('min_new_shards', 'n/a')}` complete shard from the last trained snapshot.",
-        "- Strong final training runs automatically after `language_table` and `language_table_sim` both pass verification.",
+        (
+            "- Strong final allocation-head training is complete; the trigger is retained only for audit."
+            if strong_pipeline.get("training_complete")
+            else "- Strong final training runs automatically after `language_table` and `language_table_sim` both pass verification."
+        ),
         "- The Strong final training command is guarded by `scripts/train_openx_strong_after_download.sh`; it will not start while partial files are present.",
         "- After Strong final training finishes, the public service package and progress page are refreshed from the Strong checkpoint.",
         "",
@@ -1517,7 +1687,23 @@ def main() -> None:
     strong_wait_status = load_json(ROOT / "results" / "openx_strong_training" / "wait_guard_status.json")
     incremental_rows_path = ROOT / "results" / "openx_incremental_training_snapshot" / "openx_shard_training_rows.csv"
     strong_rows_path = ROOT / "results" / "openx_strong_training" / "openx_shard_training_rows.csv"
-    if strong_report:
+    strong_report_status_complete = strong_report.get("status") == "complete"
+    try:
+        strong_report_steps_complete = int(strong_report.get("steps") or 0) >= 20_000
+    except (TypeError, ValueError):
+        strong_report_steps_complete = False
+    strong_checkpoint_path = (strong_report.get("model_artifact") or {}).get("path")
+    strong_checkpoint_exists = bool(
+        strong_checkpoint_path and Path(strong_checkpoint_path).expanduser().exists()
+    )
+    strong_marker_exists = strong_training_marker.exists()
+    strong_training_complete = bool(
+        strong_marker_exists
+        and strong_report_status_complete
+        and strong_report_steps_complete
+        and strong_checkpoint_exists
+    )
+    if strong_training_complete:
         current_training_report = strong_report
         current_training_source = "strong_openx_training"
     elif incremental_report:
@@ -1535,10 +1721,34 @@ def main() -> None:
         "wait_policy": "poll_strong_download_verification_until_ready",
         "ready_field": "ready_for_strong_training",
         "guard_command": "python3 tools/qtail_verify_openx_strong_download.py --require-ready",
+        "download_gate_status": (
+            "ready"
+            if strong_verification.get("ready_for_strong_training")
+            else "waiting"
+        ),
         "download_complete": strong_download_marker.exists(),
         "download_completed_at": read_text_file(strong_download_marker),
-        "training_complete": strong_training_marker.exists(),
+        "training_status": (
+            "complete"
+            if strong_training_complete
+            else "evidence_mismatch"
+            if strong_marker_exists
+            or strong_report_status_complete
+            or strong_checkpoint_exists
+            else "ready_to_start"
+            if strong_verification.get("ready_for_strong_training")
+            else "waiting_for_gate"
+        ),
+        "training_complete": strong_training_complete,
         "training_completed_at": read_text_file(strong_training_marker),
+        "completion_evidence": {
+            "marker_exists": strong_marker_exists,
+            "report_status": strong_report.get("status"),
+            "report_steps": strong_report.get("steps"),
+            "expected_steps": 20_000,
+            "checkpoint_path": strong_checkpoint_path,
+            "checkpoint_exists": strong_checkpoint_exists,
+        },
         "post_training_actions": [
             "run 20000-step Open X Strong allocation-head training",
             "rebuild qtail_openx_service_public from strong training report",
@@ -1550,6 +1760,17 @@ def main() -> None:
             "refresh progress_manifest.json for the page after the completion marker exists",
         ],
     }
+    post_strong = post_strong_acceptance(strong_pipeline)
+    strong_pipeline["post_acceptance_status"] = post_strong.get("status")
+    strong_pipeline["current_stage"] = (
+        "strong_allocation_service_complete"
+        if strong_training_complete and post_strong.get("status") == "complete"
+        else "strong_training_complete_post_acceptance_pending"
+        if strong_training_complete
+        else "strong_training_ready_or_running"
+        if strong_verification.get("ready_for_strong_training")
+        else "strong_download_waiting"
+    )
     refresh = refresh_policy(trainable_gib, auto_refresh)
     download_progress = latest_gsutil_progress(strong_download_log)
     download_acceleration = latest_gsutil_config(strong_download_log)
@@ -1566,7 +1787,11 @@ def main() -> None:
         "generated_at_local": local_iso(),
         "timezone": "Asia/Shanghai",
         "title": "Q-Tail Open X Training Progress",
-        "current_stage": "strong_download_queued_or_running",
+        "current_stage": strong_pipeline["current_stage"],
+        "freshness_policy": {
+            "expected_refresh_seconds": 60,
+            "stale_after_seconds": 180,
+        },
         "data": {
             "path": str(DATA_DIR),
             "total_bytes": total_bytes,
@@ -1595,7 +1820,7 @@ def main() -> None:
         "strong_download_verification": strong_verification,
         "strong_dataset_completion": strong_dataset_completion(strong_verification),
         "strong_pipeline": strong_pipeline,
-        "post_strong_acceptance": post_strong_acceptance(strong_pipeline),
+        "post_strong_acceptance": post_strong,
         "strong_wait_guard": strong_wait_status,
         "jobs": launch_status(),
         "training": {
@@ -1672,6 +1897,7 @@ def main() -> None:
             total_gib=total_gib,
             incremental_report=incremental_report,
             strong_report=strong_report,
+            strong_pipeline=strong_pipeline,
             service_delivery=service_delivery,
             strong_verification=strong_verification,
             auto_refresh=auto_refresh,

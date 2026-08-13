@@ -37,6 +37,7 @@ FORMAL_STATIC_ARTIFACTS = (
     "droid_mirror_verifier_selftest.json",
     "droid_downloader_single_writer_selftest.json",
     "droid_runtime_process_contract_selftest.json",
+    "pipeline_generation_gate.json",
     "droid_stage_marker_hardening_selftest.json",
     "droid_progress_preview_selftest.json",
     "droid_artifact_manifest_merge_selftest.json",
@@ -57,6 +58,7 @@ FORMAL_STATIC_ARTIFACTS = (
     "droid_protocol_selftest.json",
 )
 HISTORICAL_OPTIONAL_ARTIFACTS = (
+    "droid_checksum_stat_continuity.json",
     "live_page_smoke.json",
     "droid_live_partial_marker_rejection.json",
     "droid_transport_tuning_audit.json",
@@ -76,6 +78,11 @@ FORMAL_CHECKPOINT_LABELS = (
     "deployment_qtail",
 )
 FORMAL_CHECKPOINT_STEPS = (0, 5_000, 10_000, 15_000, 20_000)
+MANIFEST_CONTROL_FILENAMES = {
+    "droid_artifact_manifest.json",
+    "droid_training_artifact_manifest.json",
+    "qtail_orchestration_snapshot_sync_audit.json",
+}
 
 
 def now() -> str:
@@ -244,7 +251,8 @@ def build_manifest_payload(
     retained_paths = [
         path
         for path in existing_paths
-        if path.is_file() or path.name not in optional_names
+        if path.name not in MANIFEST_CONTROL_FILENAMES
+        and (path.is_file() or path.name not in optional_names)
     ]
     optional_history = [
         formal_root_resolved / name
@@ -254,7 +262,11 @@ def build_manifest_payload(
     ]
     source_paths = [
         *retained_paths,
-        *additions,
+        *(
+            path
+            for path in additions
+            if path.name not in MANIFEST_CONTROL_FILENAMES
+        ),
         *formal_paths,
         *optional_history,
     ]

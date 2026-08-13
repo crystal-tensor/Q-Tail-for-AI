@@ -1,0 +1,1237 @@
+{
+  "generated_at": "2026-08-10T07:02:43.354348+00:00",
+  "status": "complete",
+  "passed_requirements": 9,
+  "total_requirements": 9,
+  "experiment_execution_valid": true,
+  "formal_results_publishable": true,
+  "hypothesis_outcome": "supported",
+  "hypothesis_supported": true,
+  "outcome_is_completion_gate": false,
+  "requirements": [
+    {
+      "id": "existing_assets_on_orico",
+      "label": "既有 Open X 与训练代码迁移到 ORICO",
+      "passed": true,
+      "evidence": {
+        "openx": {
+          "path": "/Volumes/ORICO/qtail_full_training/data/openx_demo",
+          "bytes": 184278228991,
+          "expected_bytes": 184278228991,
+          "workspace_symlink": "/Users/avalok/work/Q-TAIL-MVP/data/openx_demo"
+        },
+        "droid_backend": {
+          "exists": true,
+          "path": "/Volumes/ORICO/qtail_full_training/code/droid_policy_learning",
+          "commit": "9a29c832b4c81bf38401111f5e4cdddaca217581",
+          "expected_commit": "9a29c832b4c81bf38401111f5e4cdddaca217581",
+          "workspace_path": "/Users/avalok/work/Q-TAIL-MVP/external_data/embodied_full/training_backends/droid_policy_learning",
+          "workspace_is_external_symlink": true
+        },
+        "droid_data": {
+          "path": "/Volumes/ORICO/qtail_full_training/data/droid",
+          "is_on_orico": true,
+          "workspace_path": "/Users/avalok/work/Q-TAIL-MVP/data/droid",
+          "workspace_is_external_symlink": true
+        },
+        "results": {
+          "path": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full",
+          "workspace_path": "/Users/avalok/work/Q-TAIL-MVP/results/qtail_droid_full",
+          "workspace_is_external_symlink": true
+        },
+        "qtail_orchestration_snapshot": {
+          "exists": true,
+          "path": "/Volumes/ORICO/qtail_full_training/code/qtail_orchestration",
+          "file_count": 66,
+          "bytes": 4317702,
+          "manifest": "/Volumes/ORICO/qtail_full_training/code/qtail_orchestration/SHA256SUMS",
+          "manifest_sha256": "10f044dab0b3905ce324a08535236b5fccc0dc71d6fd1b9807700014256be7d8",
+          "served_manifest": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/qtail_orchestration_snapshot/SHA256SUMS",
+          "verified": true,
+          "verified_file_count": 65,
+          "error_count": 0,
+          "errors": [],
+          "workspace_parity": {
+            "verified": true,
+            "verified_file_count": 65,
+            "error_count": 0,
+            "errors": [],
+            "contract": "Every path in the ORICO snapshot manifest must have identical content at the current workspace-relative source path."
+          }
+        },
+        "qtail_orchestration_snapshot_publication": {
+          "format_version": "qtail_orchestration_snapshot_sync_v1",
+          "generated_at": "2026-08-10T07:01:34.441888+00:00",
+          "status": "passed",
+          "repo_root": "/Users/avalok/work/Q-TAIL-MVP",
+          "snapshot": "/Volumes/ORICO/qtail_full_training/code/qtail_orchestration",
+          "manifest": "/Volumes/ORICO/qtail_full_training/code/qtail_orchestration/SHA256SUMS",
+          "manifest_sha256": "10f044dab0b3905ce324a08535236b5fccc0dc71d6fd1b9807700014256be7d8",
+          "file_count": 65,
+          "verified_file_count": 65,
+          "progress_refresh_lock": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/.progress_refresh.lock",
+          "progress_refresh_lock_held_during_swap": true,
+          "audit_committed_before_progress_lock_release": true,
+          "atomic_directory_swap": "macos_renameatx_np_RENAME_SWAP",
+          "claim_boundary": "The snapshot was fully staged and source-verified before one same-volume atomic directory swap. The published tree was reverified and this audit was committed while the public progress projection lock remained held. This proves local publication consistency, not external timestamping or WORM storage.",
+          "path": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/qtail_orchestration_snapshot_sync_audit.json",
+          "valid": true
+        }
+      }
+    },
+    {
+      "id": "official_source_and_manifest",
+      "label": "官方 DROID 来源与对象清单",
+      "passed": true,
+      "evidence": {
+        "source": "gs://gresearch/robotics/droid",
+        "source_probe": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_source_probe.json",
+        "source_probe_marker": {
+          "valid": true,
+          "marker": "/Volumes/ORICO/qtail_full_training/manifests/DROID_SOURCE_PROBED",
+          "report": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_source_probe.json",
+          "format_version": "qtail_droid_source_probe_marker_v2",
+          "report_sha256": "fc9d6129ad3cf8cf20f9a754f29a0cc0f45496133eea4351e3d28fd240ec4b2e",
+          "checks": {
+            "semantic_marker": true,
+            "marker_status": true,
+            "marker_source": true,
+            "marker_bytes": true,
+            "marker_job_root": true,
+            "marker_report_path": true,
+            "marker_report_sha256": true,
+            "marker_capacity_gate": true,
+            "report_status": true,
+            "report_source": true,
+            "report_bytes": true,
+            "report_job_root": true,
+            "report_capacity_gate": true
+          },
+          "claim_boundary": "This validates the local semantic source marker and its report hash binding. It does not independently re-query the remote bucket or replace the live capacity gate."
+        },
+        "object_manifest": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_object_manifest.json",
+        "object_count": 4102,
+        "bytes": 3700745265151,
+        "checksum_manifest": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_object_checksum_manifest.json",
+        "checksum_object_count": 4102,
+        "release_metadata_audit": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_release_metadata_audit.json",
+        "release_metadata_summary": {
+          "valid": true,
+          "version": "droid_release_metadata_audit_v1",
+          "status": "verified",
+          "source": "gs://gresearch/robotics/droid",
+          "gates": {
+            "official_checksum_manifest": true,
+            "both_releases_verified": true,
+            "combined_shards_4096": true,
+            "combined_records_187891": true,
+            "combined_split_bytes_match": true,
+            "step_schemas_identical": true,
+            "training_features_present": true
+          },
+          "combined_official_metadata": {
+            "tfrecord_shards": 4096,
+            "records": 187891,
+            "split_bytes": 3700742144299
+          },
+          "releases": [
+            {
+              "release": "1.0.0",
+              "dataset_name": "r2d2_faceblur",
+              "dataset_version": "1.4.0",
+              "official_tfrecord_shards": 2048,
+              "official_records": 92233,
+              "official_split_bytes": 1834749018029,
+              "verified": true
+            },
+            {
+              "release": "1.0.1",
+              "dataset_name": "droid_101",
+              "dataset_version": "0.0.1",
+              "official_tfrecord_shards": 2048,
+              "official_records": 95658,
+              "official_split_bytes": 1865993126270,
+              "verified": true
+            }
+          ],
+          "claim_boundary": "This verifies official metadata and schema compatibility only. It does not prove that 4,096 TFRecord shards or 187,891 records have been downloaded and decoded.",
+          "errors": []
+        }
+      }
+    },
+    {
+      "id": "uniclash_transport_isolation",
+      "label": "UniClashCore 在线且 DROID 下载强制直连",
+      "passed": true,
+      "evidence": {
+        "guard": "/Users/avalok/work/Q-TAIL-MVP/.tmp/qtail-uniclash-transport-guard.json",
+        "status": "passed_idle",
+        "uniclash": {
+          "app_running": true,
+          "app_pids": [
+            2084
+          ],
+          "core_running": true,
+          "core_pids": [
+            2089
+          ],
+          "tun_enabled": false,
+          "system_proxy_enabled": true,
+          "allow_bypass": true
+        },
+        "system_proxy_bypass": {
+          "service": "Wi-Fi",
+          "domains": [
+            "*.googleapis.com",
+            "*.local",
+            "*.storage.googleapis.com",
+            "*360buyimg.com",
+            "*jd.com",
+            "*zhihu.com",
+            "*zhimg.com",
+            "10.*",
+            "100ime-iat-api.xfyun.cn",
+            "127.*",
+            "172.16.*",
+            "172.17.*",
+            "172.18.*",
+            "172.19.*",
+            "172.2*",
+            "172.30.*",
+            "172.31.*",
+            "192.168.*",
+            "localhost",
+            "storage.googleapis.com"
+          ],
+          "required_domains": [
+            "*.googleapis.com",
+            "*.storage.googleapis.com",
+            "storage.googleapis.com"
+          ],
+          "passed": true,
+          "repair_attempted": false,
+          "repair_returncode": null,
+          "repaired": false
+        },
+        "active_droid_transfers": 0,
+        "cumulative": {
+          "first_sample_at": "2026-07-30T02:07:49.730706+00:00",
+          "last_sample_at": "2026-08-10T07:02:37.797536+00:00",
+          "samples": 277408,
+          "passed_samples": 277404,
+          "blocked_samples": 4,
+          "observed_process_samples": 697587,
+          "curl_process_samples": 689146,
+          "gsutil_process_samples": 8441,
+          "observed_socket_samples": 679914,
+          "direct_route_socket_samples": 679914,
+          "forbidden_socket_observations": 0,
+          "wrong_route_observations": 0,
+          "blocked_pids": [],
+          "last_violation_at": "2026-08-10T01:43:37.736529+00:00",
+          "violation_events": [
+            {
+              "at": "2026-08-07T01:57:47.218132+00:00",
+              "global_violations": [
+                "UniClashCore is not running"
+              ],
+              "blocked_processes": [],
+              "transfer_violations": []
+            },
+            {
+              "at": "2026-08-07T01:57:57.971595+00:00",
+              "global_violations": [
+                "UniClashCore is not running"
+              ],
+              "blocked_processes": [],
+              "transfer_violations": []
+            },
+            {
+              "at": "2026-08-07T07:44:37.165600+00:00",
+              "global_violations": [
+                "UniClashCore is not running"
+              ],
+              "blocked_processes": [],
+              "transfer_violations": []
+            },
+            {
+              "at": "2026-08-10T01:43:37.736529+00:00",
+              "global_violations": [
+                "UniClashCore is not running"
+              ],
+              "blocked_processes": [],
+              "transfer_violations": []
+            }
+          ]
+        },
+        "guard_generated_at": "2026-08-10T07:02:37.797536+00:00",
+        "guard_age_seconds": 1.151231,
+        "guard_heartbeat_fresh": true,
+        "adjudication": {
+          "generated_at": "2026-07-31T08:59:52.611283+00:00",
+          "status": "adjudicated_transport_epochs_v6",
+          "claim_boundary": "This adjudicates process-classifier coverage, conservative policy pauses, curl interface binding, and observed socket routes. It does not prove mirror completeness or model quality.",
+          "findings": [
+            {
+              "guard_epoch": "classifier_v1",
+              "classification": "shell-launcher classifier false positive",
+              "coverage_gap": false,
+              "policy_pause": true,
+              "data_transfer_violation": false
+            },
+            {
+              "guard_epoch": "droid_transport_executable_v2",
+              "classification": "descendant environment false positive",
+              "coverage_gap": false,
+              "policy_pause": true,
+              "data_transfer_violation": false
+            },
+            {
+              "guard_epoch": "droid_transport_root_environment_v3",
+              "classification": "encoded JSON media URL under-observation",
+              "coverage_gap": true,
+              "policy_pause": false,
+              "data_transfer_violation": false
+            },
+            {
+              "guard_epoch": "droid_transport_downloader_descendants_v4",
+              "classification": "UniClashCore restart caused fail-closed termination; all observed sockets still routed directly over en1",
+              "coverage_gap": false,
+              "policy_pause": true,
+              "data_transfer_violation": false
+            },
+            {
+              "guard_epoch": "droid_transport_downloader_descendants_v5_interface_bound",
+              "classification": "interface-binding migration rejected old downloader children before the resumable v6 process generation",
+              "coverage_gap": false,
+              "policy_pause": true,
+              "data_transfer_violation": false
+            }
+          ],
+          "remediation": {
+            "classifier_version": "droid_transport_downloader_descendants_v6_interface_bound_live",
+            "curl_contract": [
+              "--noproxy '*'",
+              "--interface en1"
+            ],
+            "route_contract": "every observed remote route must equal en1",
+            "selftest": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/uniclash_transport_guard_classifier_v6_selftest.json",
+            "selftest_sha256": "95d92c096044630184ab5b6ad7b9ca51a95b57ece3e672aa15c3e14b8b4501cb"
+          },
+          "live_v6_evidence": {
+            "guard": "/Users/avalok/work/Q-TAIL-MVP/.tmp/qtail-uniclash-transport-guard.json",
+            "guard_sha256": "cde323865672bc0119ab174728cd2ddef6baf7408dcdf898026344418d3d8527",
+            "parallel_download_status": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/parallel_download_status.json",
+            "parallel_download_status_sha256": "2e4c88743a3d1ea46ab915c03d8819b2af0eaafa2fbfe8364ebb17623096f738",
+            "expected_active_workers": 16,
+            "observed_transfers": 16,
+            "observed_sockets": 16,
+            "observed_routes": 16,
+            "bound_interfaces": [
+              "en1"
+            ],
+            "route_interfaces": [
+              "en1"
+            ]
+          },
+          "preservation": {
+            "archives": [
+              {
+                "path": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/uniclash_transport_guard_v1_classifier_false_positive.json",
+                "sha256": "70782395b5395f007c825cdd89bde16520e5e41a5fd5a19093fe94006a9d496c",
+                "classifier_version": null,
+                "raw_blocked_samples": 1,
+                "raw_forbidden_socket_observations": 0,
+                "raw_wrong_route_observations": 0,
+                "coverage_gap": false,
+                "policy_pause": false,
+                "data_transfer_violation": false
+              },
+              {
+                "path": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/uniclash_transport_guard_v2_descendant_environment_false_positive.json",
+                "sha256": "187f36aeabd68279aef3bae2031b494b812487539cd36ff240ae873e70dac641",
+                "classifier_version": "droid_transport_executable_v2",
+                "raw_blocked_samples": 3,
+                "raw_forbidden_socket_observations": 0,
+                "raw_wrong_route_observations": 0,
+                "coverage_gap": false,
+                "policy_pause": false,
+                "data_transfer_violation": false
+              },
+              {
+                "path": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/uniclash_transport_guard_v3_encoded_path_underobservation.json",
+                "sha256": "b0156a69955c41aca8bc1f661a335625c4dbeec9bddb9772ed9c3555784e8797",
+                "classifier_version": "droid_transport_root_environment_v3",
+                "raw_blocked_samples": 0,
+                "raw_forbidden_socket_observations": 0,
+                "raw_wrong_route_observations": 0,
+                "coverage_gap": true,
+                "policy_pause": false,
+                "data_transfer_violation": false
+              },
+              {
+                "path": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/transport_epochs/uniclash_transport_guard_v4_core_restart_pause.json",
+                "sha256": "7ccb276cc5425f2263602d4d4e2abdf4ca7230778b9da1c11a91bde60ba0771a",
+                "classifier_version": "droid_transport_downloader_descendants_v4",
+                "raw_blocked_samples": 2,
+                "raw_forbidden_socket_observations": 0,
+                "raw_wrong_route_observations": 0,
+                "coverage_gap": false,
+                "policy_pause": true,
+                "data_transfer_violation": false
+              },
+              {
+                "path": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/transport_epochs/uniclash_transport_guard_v5_interface_migration_pause.json",
+                "sha256": "be2225cb24bbaed797cc4ff47988c9df0472ed7dbef080d1f6627319280f43c9",
+                "classifier_version": "droid_transport_downloader_descendants_v5_interface_bound",
+                "raw_blocked_samples": 6,
+                "raw_forbidden_socket_observations": 0,
+                "raw_wrong_route_observations": 0,
+                "coverage_gap": false,
+                "policy_pause": true,
+                "data_transfer_violation": false
+              }
+            ]
+          },
+          "archive_hashes_actual": {
+            "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/uniclash_transport_guard_v1_classifier_false_positive.json": "70782395b5395f007c825cdd89bde16520e5e41a5fd5a19093fe94006a9d496c",
+            "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/uniclash_transport_guard_v2_descendant_environment_false_positive.json": "187f36aeabd68279aef3bae2031b494b812487539cd36ff240ae873e70dac641",
+            "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/uniclash_transport_guard_v3_encoded_path_underobservation.json": "b0156a69955c41aca8bc1f661a335625c4dbeec9bddb9772ed9c3555784e8797",
+            "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/transport_epochs/uniclash_transport_guard_v4_core_restart_pause.json": "7ccb276cc5425f2263602d4d4e2abdf4ca7230778b9da1c11a91bde60ba0771a",
+            "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/transport_epochs/uniclash_transport_guard_v5_interface_migration_pause.json": "be2225cb24bbaed797cc4ff47988c9df0472ed7dbef080d1f6627319280f43c9"
+          },
+          "checks": {
+            "v1_raw_false_positive_preserved": true,
+            "v2_raw_false_positive_preserved": true,
+            "v3_coverage_gap_preserved": true,
+            "v4_core_restart_pause_preserved": true,
+            "v5_interface_migration_pause_preserved": true,
+            "v6_classifier_selftest_passed": true,
+            "v6_live_guard_passed_and_clean": true,
+            "v6_covers_every_active_worker": true,
+            "v6_every_curl_is_interface_bound": true,
+            "v6_every_socket_routes_direct": true,
+            "uniclash_core_online_tun_off": true
+          },
+          "failed_checks": []
+        },
+        "adjudication_required": true,
+        "adjudication_valid": true,
+        "blocked_processes": [],
+        "global_violations": []
+      }
+    },
+    {
+      "id": "full_mirror_checksum",
+      "label": "3.366 TiB 镜像与 checksum 完整性",
+      "passed": true,
+      "evidence": {
+        "download_verification": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/download_verification.json",
+        "local_official_bytes": 3700745265151,
+        "checksum_returncode": 0,
+        "checksum_error_count": 0,
+        "object_checksum_ledger": {
+          "status": "complete",
+          "manifest_valid": true,
+          "expected_objects": 4102,
+          "verified_objects": 4102,
+          "verified_bytes": 3700745265151,
+          "verified_percent": 100.0,
+          "stale_or_unexpected_entries": 0,
+          "stale_or_unexpected_sample": [],
+          "ledger_generated_at": "2026-07-31T19:21:25.584808+00:00"
+        }
+      }
+    },
+    {
+      "id": "all_record_scan",
+      "label": "全部 TFRecord 的 100% 记录扫描",
+      "passed": true,
+      "evidence": {
+        "feature_status": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_feature_extraction_status.json",
+        "processed_shards": 4096,
+        "total_shards": 4096,
+        "records_decoded": 187891,
+        "parse_rate": 1.0,
+        "scan_complete_rate": 1.0,
+        "formal_gate_passed": true,
+        "cache_verification": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_feature_cache_verification.json",
+        "official_expected_records": 187891,
+        "verified_decoded_records": 187891,
+        "cache_directory_count": 4255,
+        "unreferenced_cache_count": 159,
+        "unreferenced_cache_bytes": 195178,
+        "unreferenced_cache_excluded_from_training": true,
+        "release_record_audit": [
+          {
+            "release": "1.0.0",
+            "dataset_info": "/Volumes/ORICO/qtail_full_training/data/droid/1.0.0/dataset_info.json",
+            "dataset_name": "r2d2_faceblur",
+            "official_tfrecord_count": 2048,
+            "metadata_mapped_tfrecord_count": 2048,
+            "official_expected_records": 92233,
+            "verified_cache_count": 2048,
+            "verified_expected_records": 92233,
+            "verified_decoded_records": 92233,
+            "verified_record_count_match": true
+          },
+          {
+            "release": "1.0.1",
+            "dataset_info": "/Volumes/ORICO/qtail_full_training/data/droid/1.0.1/dataset_info.json",
+            "dataset_name": "droid_101",
+            "official_tfrecord_count": 2048,
+            "metadata_mapped_tfrecord_count": 2048,
+            "official_expected_records": 95658,
+            "verified_cache_count": 2048,
+            "verified_expected_records": 95658,
+            "verified_decoded_records": 95658,
+            "verified_record_count_match": true
+          }
+        ],
+        "training_release_composition": [
+          {
+            "release": "1.0.0",
+            "official_dataset_name": "r2d2_faceblur",
+            "dataset_info": "/Volumes/ORICO/qtail_full_training/data/droid/1.0.0/dataset_info.json",
+            "metadata_status": "verified",
+            "observed_tfrecord_shards": 2048,
+            "official_tfrecord_shards": 2048,
+            "observed_records_decoded": 92233,
+            "official_expected_records": 92233,
+            "observed_tfrecord_bytes": 1834750493757,
+            "official_split_bytes": 1834749018029,
+            "full_shard_coverage": true,
+            "full_record_count_match": true
+          },
+          {
+            "release": "1.0.1",
+            "official_dataset_name": "droid_101",
+            "dataset_info": "/Volumes/ORICO/qtail_full_training/data/droid/1.0.1/dataset_info.json",
+            "metadata_status": "verified",
+            "observed_tfrecord_shards": 2048,
+            "official_tfrecord_shards": 2048,
+            "observed_records_decoded": 95658,
+            "official_expected_records": 95658,
+            "observed_tfrecord_bytes": 1865994656798,
+            "official_split_bytes": 1865993126270,
+            "full_shard_coverage": true,
+            "full_record_count_match": true
+          }
+        ],
+        "training_release_composition_valid": true
+      }
+    },
+    {
+      "id": "same_compute_training",
+      "label": "Source 与 Q-Tail 同算力训练",
+      "passed": true,
+      "evidence": {
+        "training_report": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_full_training_report.json",
+        "formal_protocol_valid": true,
+        "steps_per_arm": 20000,
+        "device": "mps",
+        "architecture": "AllocationHead(10→32→16→1)",
+        "same_architecture": true,
+        "optimizer": "AdamW(lr=0.002, weight_decay=0.0001)",
+        "source_optimizer_updates": 40000,
+        "qtail_optimizer_updates": 40000,
+        "optimizer_update_semantics": "Checkpoint step k stores the state after exactly k optimizer updates; each stage ends at k=steps.",
+        "same_seed": true,
+        "same_features": true,
+        "same_device": true,
+        "source_parameter_count": 897,
+        "qtail_parameter_count": 897,
+        "same_parameter_count": true,
+        "effect_metrics_valid": true,
+        "holdout_valid": true,
+        "tail_contract_valid": true,
+        "holdout_shards": 820,
+        "pt_source_valid": true,
+        "pt_source_sha256": "59e487af80482215b2c2d4e81e9ccd7471ac6c94c1ef40547596ccb80367e75f",
+        "rare_instruction_fingerprint_coverage_valid": true,
+        "rare_instruction_fingerprint_count": 13472,
+        "bootstrap_samples": 5000,
+        "bootstrap_ci95_pp": [
+          14.5332452899536,
+          16.708835621444308
+        ],
+        "bootstrap_descriptive_fraction_gain_le_zero": 0.0,
+        "arm_swap_diagnostic_exceedance_fraction": 0.0001999600079984003,
+        "arm_swap_diagnostic_is_valid_p_value": false,
+        "hypothesis_outcome": "supported",
+        "hypothesis_supported": true,
+        "pipeline_generation_gate": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/pipeline_generation_gate.json",
+        "pipeline_generation_gate_summary": {
+          "valid": true,
+          "format_version": "qtail_pipeline_generation_gate_v1",
+          "status": "passed",
+          "latest_gate": "pre-formal-training",
+          "expected_gates": [
+            "pre-checksum",
+            "pre-environment",
+            "pre-formal-training"
+          ],
+          "observed_gates": [
+            "pre-checksum",
+            "pre-environment",
+            "pre-formal-training"
+          ],
+          "all_checks_valid": true,
+          "gate_order_valid": true,
+          "single_pipeline_pid": 57533,
+          "pid_binding_valid": true,
+          "command_binding_valid": true,
+          "source_hash_binding_valid": true,
+          "payload_matches_current_file": true,
+          "strict_validation_errors": [],
+          "single_script_sha256": "5d55778706ba6fe4c69a24258d1ffd637eda53d08936f1663248ad8862f5b410",
+          "current_script_sha256": "5d55778706ba6fe4c69a24258d1ffd637eda53d08936f1663248ad8862f5b410",
+          "claim_boundary": "Formal completion requires all three irreversible-stage checks to pass in order under one pipeline PID, matching lock owner, exact command, and the current script SHA-256."
+        }
+      }
+    },
+    {
+      "id": "intermediate_artifacts",
+      "label": "中间结果、checkpoint 与 SHA-256 清单",
+      "passed": true,
+      "evidence": {
+        "artifact_manifest": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_artifact_manifest.json",
+        "artifact_count": 115,
+        "environment_manifest": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_environment_manifest.json",
+        "environment_manifest_in_artifact_manifest": true,
+        "environment_manifest_valid": true,
+        "environment_gates": {
+          "critical_code_present": true,
+          "orchestration_snapshot_code_parity_passed": true,
+          "immutable_inputs_present": true,
+          "backend_commit_resolved": true,
+          "backend_commit_pinned": true,
+          "backend_origin_official": true,
+          "backend_worktree_clean": true,
+          "backend_git_fsck_passed": true,
+          "download_verification_present": true,
+          "object_manifest_contract_passed": true,
+          "checksum_manifest_contract_passed": true,
+          "download_verification_semantic_passed": true,
+          "orico_is_mounted": true,
+          "torch_available": true,
+          "feature_dimension_is_ten": true,
+          "direct_transport_guard_passed": true,
+          "uniclash_isolation_guard_passed": true
+        },
+        "environment_selftest": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_environment_contract_selftest.json",
+        "environment_selftest_in_artifact_manifest": true,
+        "environment_selftest_valid": true,
+        "environment_checks": {
+          "positive_control_completes": true,
+          "one_byte_mirror_mismatch_fails": true,
+          "orchestration_snapshot_code_drift_fails": true,
+          "missing_official_md5_fails": true,
+          "uniclash_violation_fails": true,
+          "transport_classifier_v6_selftest_passes": true,
+          "backend_commit_drift_fails": true,
+          "backend_origin_drift_fails": true,
+          "backend_worktree_dirty_fails": true
+        },
+        "download_marker_selftest": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_download_marker_selftest.json",
+        "download_marker_selftest_valid": true,
+        "download_marker_controls": [
+          {
+            "name": "positive_write",
+            "passed": true,
+            "returncode": 0,
+            "stderr": ""
+          },
+          {
+            "name": "positive_verify",
+            "passed": true,
+            "returncode": 0,
+            "stderr": ""
+          },
+          {
+            "name": "tampered_marker_rejected",
+            "passed": true,
+            "returncode": 1,
+            "stderr": "DROID download completion marker does not match current manifest, ledger, files, and transport status"
+          },
+          {
+            "name": "legacy_empty_marker_upgraded",
+            "passed": true,
+            "returncode": 0,
+            "stderr": ""
+          },
+          {
+            "name": "wrong_route_rejected",
+            "passed": true,
+            "returncode": 1,
+            "stderr": "DROID download marker gate failed: checks=['transport_direct_route_guard'] file_errors=0"
+          },
+          {
+            "name": "ledger_identity_rejected",
+            "passed": true,
+            "returncode": 1,
+            "stderr": "DROID download marker gate failed: checks=['local_files_bound_to_ledger'] file_errors=1"
+          },
+          {
+            "name": "transport_count_rejected",
+            "passed": true,
+            "returncode": 1,
+            "stderr": "DROID download marker gate failed: checks=['transport_exact_counts'] file_errors=0"
+          },
+          {
+            "name": "same_size_change_with_restored_mtime_rejected",
+            "passed": true,
+            "returncode": 1,
+            "stderr": "DROID download marker gate failed: checks=['local_files_bound_to_ledger'] file_errors=1"
+          }
+        ],
+        "mirror_verifier_selftest": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_mirror_verifier_selftest.json",
+        "mirror_verifier_selftest_valid": true,
+        "mirror_verifier_controls": [
+          {
+            "name": "positive_control_passes",
+            "expected_acceptance": true,
+            "observed_acceptance": true,
+            "passed": true,
+            "returncode": 0,
+            "verifier_status": "complete",
+            "stderr_tail": ""
+          },
+          {
+            "name": "nonzero_checksum_returncode_rejected",
+            "expected_acceptance": false,
+            "observed_acceptance": false,
+            "passed": true,
+            "returncode": 1,
+            "verifier_status": "failed",
+            "stderr_tail": "DROID full-data verification failed: missing=0 mismatched=0 checksum_errors=0 extras=0 partials=0 bytes=33/33 checksum_returncode=9"
+          },
+          {
+            "name": "missing_object_rejected",
+            "expected_acceptance": false,
+            "observed_acceptance": false,
+            "passed": true,
+            "returncode": 1,
+            "verifier_status": "failed",
+            "stderr_tail": "DROID full-data verification failed: missing=1 mismatched=0 checksum_errors=0 extras=0 partials=0 bytes=14/33 checksum_returncode=0"
+          },
+          {
+            "name": "same_size_change_with_forged_ledger_rejected",
+            "expected_acceptance": false,
+            "observed_acceptance": false,
+            "passed": true,
+            "returncode": 1,
+            "verifier_status": "failed",
+            "stderr_tail": "DROID full-data verification failed: missing=0 mismatched=0 checksum_errors=1 extras=0 partials=0 bytes=33/33 checksum_returncode=0"
+          },
+          {
+            "name": "ledger_generation_mismatch_rejected",
+            "expected_acceptance": false,
+            "observed_acceptance": false,
+            "passed": true,
+            "returncode": 1,
+            "verifier_status": "failed",
+            "stderr_tail": "DROID full-data verification failed: missing=0 mismatched=0 checksum_errors=1 extras=0 partials=0 bytes=33/33 checksum_returncode=0"
+          },
+          {
+            "name": "duplicate_manifest_path_rejected",
+            "expected_acceptance": false,
+            "observed_acceptance": false,
+            "passed": true,
+            "returncode": 1,
+            "verifier_status": "failed",
+            "stderr_tail": "DROID full-data verification failed: missing=0 mismatched=0 checksum_errors=0 extras=0 partials=0 bytes=33/33 checksum_returncode=0"
+          },
+          {
+            "name": "extra_file_rejected",
+            "expected_acceptance": false,
+            "observed_acceptance": false,
+            "passed": true,
+            "returncode": 1,
+            "verifier_status": "failed",
+            "stderr_tail": "DROID full-data verification failed: missing=0 mismatched=0 checksum_errors=0 extras=1 partials=0 bytes=33/33 checksum_returncode=0"
+          },
+          {
+            "name": "wrong_expected_tfrecord_count_rejected",
+            "expected_acceptance": false,
+            "observed_acceptance": false,
+            "passed": true,
+            "returncode": 1,
+            "verifier_status": "failed",
+            "stderr_tail": "DROID full-data verification failed: missing=0 mismatched=0 checksum_errors=0 extras=0 partials=0 bytes=33/33 checksum_returncode=0"
+          }
+        ],
+        "training_gate_order_selftest": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_training_gate_order_selftest.json",
+        "training_gate_order_selftest_valid": true,
+        "training_gate_order_controls": [
+          {
+            "name": "positive_current_trainer_accepted",
+            "expected": "accepted",
+            "observed_errors": [],
+            "passed": true
+          },
+          {
+            "name": "environment_binding_after_mirror_rejected",
+            "expected": "rejected",
+            "observed_errors": [
+              "environment_code_binding:not_before:verified_mirror"
+            ],
+            "passed": true
+          },
+          {
+            "name": "mirror_after_row_build_rejected",
+            "expected": "rejected",
+            "observed_errors": [
+              "verified_mirror:not_before:all_record_rows"
+            ],
+            "passed": true
+          },
+          {
+            "name": "record_closure_after_parse_gate_rejected",
+            "expected": "rejected",
+            "observed_errors": [
+              "record_closure:not_before:parse_gate"
+            ],
+            "passed": true
+          },
+          {
+            "name": "parse_after_scan_gate_rejected",
+            "expected": "rejected",
+            "observed_errors": [
+              "parse_gate:not_before:scan_gate"
+            ],
+            "passed": true
+          },
+          {
+            "name": "scan_after_holdout_split_rejected",
+            "expected": "rejected",
+            "observed_errors": [
+              "scan_gate:not_before:holdout_split"
+            ],
+            "passed": true
+          },
+          {
+            "name": "holdout_gate_after_training_marker_rejected",
+            "expected": "rejected",
+            "observed_errors": [
+              "holdout_gate:not_before:training_marker"
+            ],
+            "passed": true
+          },
+          {
+            "name": "training_marker_after_first_stage_rejected",
+            "expected": "rejected",
+            "observed_errors": [
+              "training_marker:not_before:first_training_stage"
+            ],
+            "passed": true
+          },
+          {
+            "name": "optimizer_before_final_step_break_rejected",
+            "expected": "rejected",
+            "observed_errors": [
+              "final_step_break_not_before_optimizer_step"
+            ],
+            "passed": true
+          },
+          {
+            "name": "environment_code_binding_positive_accepted",
+            "expected": "accepted",
+            "observed_errors": [],
+            "passed": true
+          },
+          {
+            "name": "environment_code_drift_rejected",
+            "expected": "rejected",
+            "observed_errors": [
+              "Formal DROID environment/code binding failed: live_code_sha256_mismatch"
+            ],
+            "passed": true
+          }
+        ],
+        "downloader_single_writer_selftest": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_downloader_single_writer_selftest.json",
+        "downloader_single_writer_selftest_valid": true,
+        "downloader_single_writer_checks": {
+          "first_writer_acquires_lock": true,
+          "concurrent_writer_is_rejected": true,
+          "rejection_names_single_writer_lock": true,
+          "first_writer_survives_rejected_peer": true,
+          "lock_releases_after_owner_exit": true,
+          "capacity_exact_floor_passes": true,
+          "capacity_one_byte_short_is_rejected": true,
+          "capacity_counts_only_manifest_bound_part": true,
+          "capacity_rejects_oversize_bound_part": true,
+          "reserve_guard_rejects_before_curl_payload": true,
+          "reserve_guard_records_enforced_policy": true,
+          "physical_interface_binding_contract_present": true,
+          "removed_physical_interface_binding_is_rejected": true
+        },
+        "downloader_single_writer_activation": "next_natural_recovery_or_generation",
+        "runtime_process_contract_selftest": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_runtime_process_contract_selftest.json",
+        "runtime_process_contract_selftest_valid": true,
+        "runtime_process_contract_checks": {
+          "positive_download_contract_passes": true,
+          "missing_handoff_is_rejected": true,
+          "duplicate_handoff_is_rejected": true,
+          "stale_handoff_target_is_rejected": true,
+          "duplicate_pipeline_is_rejected": true,
+          "stale_download_heartbeat_is_rejected": true,
+          "missing_transport_guard_is_rejected": true,
+          "post_download_contract_drops_transfer_processes": true,
+          "launcher_and_watchdog_self_healing_contract_passes": true,
+          "launcher_without_prewarm_pid_binding_is_rejected": true,
+          "source_without_resume_or_mount_contract_is_rejected": true,
+          "source_without_pipeline_pid_binding_is_rejected": true,
+          "generation_handoff_exact_ownership_contract_passes": true,
+          "generation_handoff_without_unique_owners_or_marker_binding_is_rejected": true,
+          "generation_handoff_checksum_convergence_contract_passes": true,
+          "generation_handoff_missing_convergence_edge_is_rejected": true
+        },
+        "pipeline_generation_gate": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/pipeline_generation_gate.json",
+        "pipeline_generation_gate_summary": {
+          "valid": true,
+          "format_version": "qtail_pipeline_generation_gate_v1",
+          "status": "passed",
+          "latest_gate": "pre-formal-training",
+          "expected_gates": [
+            "pre-checksum",
+            "pre-environment",
+            "pre-formal-training"
+          ],
+          "observed_gates": [
+            "pre-checksum",
+            "pre-environment",
+            "pre-formal-training"
+          ],
+          "all_checks_valid": true,
+          "gate_order_valid": true,
+          "single_pipeline_pid": 57533,
+          "pid_binding_valid": true,
+          "command_binding_valid": true,
+          "source_hash_binding_valid": true,
+          "payload_matches_current_file": true,
+          "strict_validation_errors": [],
+          "single_script_sha256": "5d55778706ba6fe4c69a24258d1ffd637eda53d08936f1663248ad8862f5b410",
+          "current_script_sha256": "5d55778706ba6fe4c69a24258d1ffd637eda53d08936f1663248ad8862f5b410",
+          "claim_boundary": "Formal completion requires all three irreversible-stage checks to pass in order under one pipeline PID, matching lock owner, exact command, and the current script SHA-256."
+        },
+        "uniclash_pre_checksum_gate": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/uniclash_pre_checksum_gate.json",
+        "uniclash_pre_checksum_gate_valid": true,
+        "uniclash_pre_checksum_gate_checks": {
+          "guard_status_passed": true,
+          "guard_heartbeat_fresh": true,
+          "uniclash_core_running": true,
+          "uniclash_tun_disabled": true,
+          "droid_bypass_policy_enabled": true,
+          "curl_and_gsutil_guarded": true,
+          "expected_interface_bound": true,
+          "system_proxy_bypass_passed": true,
+          "cumulative_history_clean": true,
+          "live_transfers_clean_and_direct": true
+        },
+        "uniclash_pre_checksum_gate_selftest": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/uniclash_pre_checksum_gate_selftest.json",
+        "uniclash_pre_checksum_gate_selftest_valid": true,
+        "uniclash_pre_checksum_gate_selftest_checks": {
+          "positive_clean_direct_guard": true,
+          "core_off_rejected": true,
+          "tun_on_rejected": true,
+          "stale_guard_rejected": true,
+          "missing_gsutil_policy_rejected": true,
+          "system_bypass_failure_rejected": true,
+          "idle_core_restart_pause_is_disclosed_and_accepted": true,
+          "blocked_sample_without_event_rejected": true,
+          "core_restart_during_transfer_rejected": true,
+          "unknown_policy_pause_rejected": true,
+          "wrong_route_history_rejected": true,
+          "live_tunnel_route_rejected": true,
+          "global_violation_rejected": true
+        },
+        "live_partial_marker_rejection": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_live_partial_marker_rejection.json",
+        "live_partial_marker_rejection_valid": true,
+        "process_log_manifest": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_process_log_manifest.json",
+        "process_log_gate_required": false,
+        "required_process_log_artifacts": [
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_process_log_manifest.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/process_logs_final/droid_feature_prewarm.log",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/process_logs_final/droid_full_pipeline.log",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/process_logs_final/manual_endpoint_generation_handoff.log",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/process_logs_final/pipeline_generation_handoff.log",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/process_logs_final/pipeline_watchdog.log",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/process_logs_final/progress_loop.log",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/process_logs_final/progress_refresh.log",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/process_logs_final/qtail-web-services.log"
+        ],
+        "process_log_manifest_valid": true,
+        "process_log_count": 15,
+        "process_log_paths": [
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/process_logs_final/droid_full_pipeline.log",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/process_logs_final/droid_feature_prewarm.log",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/process_logs_final/pipeline_watchdog.log",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/process_logs_final/progress_loop.log",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/process_logs_final/progress_refresh.log",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/process_logs_final/pipeline_generation_handoff.log",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/process_logs_final/manual_endpoint_generation_handoff.log",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/process_logs_final/qtail-web-services.log",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/process_logs_final/pipeline_watchdog_status.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/process_logs_final/qtail_droid_terminal_launcher.log",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/process_logs_final/qtail_droid_launchd_stderr.log",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/process_logs_final/qtail_droid_launchd_stdout.log",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/process_logs_final/qtail_uniclash_guard_stderr.log",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/process_logs_final/qtail_uniclash_guard_stdout.log",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/process_logs_final/qtail_web_services_local.log"
+        ],
+        "live_artifacts_excluded_from_final_manifest": true,
+        "immutable_final_artifacts": [
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/download_progress_samples_final.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/uniclash_transport_guard_final.json"
+        ],
+        "immutable_final_artifacts_present": true,
+        "immutable_final_artifact_contract": true,
+        "artifact_integrity": {
+          "verified": true,
+          "verified_file_count": 115,
+          "error_count": 0,
+          "errors": []
+        },
+        "formal_pre_page_artifact_count": 64,
+        "required_artifact_count": 64,
+        "required_artifacts": [
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/download_verification.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_artifact_manifest_merge_selftest.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_download_marker_selftest.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_downloader_single_writer_selftest.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_environment_contract_selftest.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_environment_manifest.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_feature_cache_manifest.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_feature_cache_verification.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_feature_extraction_status.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_full_run_manifest.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_full_training_report.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_incremental_closure_audit.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_incremental_closure_selftest.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_intermediate_checkpoint_manifest.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_mirror_verifier_selftest.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_model_training_status.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_object_manifest.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_pipeline_shell_contract_selftest.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_progress_preview_selftest.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_protocol_selftest.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_rare_instruction_fingerprint_coverage.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_release_metadata_audit.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_release_milestone_status.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_runtime_process_contract_selftest.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_shard_features.csv",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_shard_training_rows.csv",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_stage_marker_hardening_selftest.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_timeline_monotonic_selftest.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_training_curve.csv",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/droid_training_gate_order_selftest.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/empirical_pt_source.csv",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/intermediate_checkpoints/deployment_qtail_step_000000.pt",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/intermediate_checkpoints/deployment_qtail_step_005000.pt",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/intermediate_checkpoints/deployment_qtail_step_010000.pt",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/intermediate_checkpoints/deployment_qtail_step_015000.pt",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/intermediate_checkpoints/deployment_qtail_step_020000.pt",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/intermediate_checkpoints/deployment_source_step_000000.pt",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/intermediate_checkpoints/deployment_source_step_005000.pt",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/intermediate_checkpoints/deployment_source_step_010000.pt",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/intermediate_checkpoints/deployment_source_step_015000.pt",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/intermediate_checkpoints/deployment_source_step_020000.pt",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/intermediate_checkpoints/evaluation_qtail_step_000000.pt",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/intermediate_checkpoints/evaluation_qtail_step_005000.pt",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/intermediate_checkpoints/evaluation_qtail_step_010000.pt",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/intermediate_checkpoints/evaluation_qtail_step_015000.pt",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/intermediate_checkpoints/evaluation_qtail_step_020000.pt",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/intermediate_checkpoints/evaluation_source_step_000000.pt",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/intermediate_checkpoints/evaluation_source_step_005000.pt",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/intermediate_checkpoints/evaluation_source_step_010000.pt",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/intermediate_checkpoints/evaluation_source_step_015000.pt",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/intermediate_checkpoints/evaluation_source_step_020000.pt",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/pipeline_generation_gate.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/qtail_droid_allocation_head.pt",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/release_milestones/droid_release_1.0.0_complete.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/release_milestones/droid_release_1.0.1_complete.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/training_status.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/transport_epochs/uniclash_transport_guard_v4_core_restart_pause.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/transport_epochs/uniclash_transport_guard_v5_interface_migration_pause.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/uniclash_checksum_handoff_gate.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/uniclash_pre_checksum_gate.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/uniclash_pre_checksum_gate_selftest.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/uniclash_pre_environment_gate.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/uniclash_pre_training_gate.json",
+          "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/uniclash_transport_guard_classifier_v6_selftest.json"
+        ],
+        "artifact_seal_state": {
+          "sealed_required_count": 64,
+          "unsealed_required_count": 0,
+          "physically_missing_required_count": 0,
+          "present_but_unsealed_required_count": 0
+        },
+        "missing_required_artifacts": [],
+        "missing_required_artifacts_definition": "Compatibility field: required paths absent from the complete SHA-256 artifact manifest. Entries may already exist on disk as live, mutable, or pre-seal evidence.",
+        "unsealed_required_artifacts": [],
+        "physically_missing_required_artifacts": [],
+        "present_but_unsealed_required_artifacts": [],
+        "immutable_final_guard_valid": true
+      }
+    },
+    {
+      "id": "runtime_health",
+      "label": "下载与训练后台运行健康",
+      "passed": true,
+      "evidence": {
+        "processes": {
+          "pipeline": [
+            {
+              "pid": 74395,
+              "ppid": 31681
+            }
+          ],
+          "watchdog": [
+            {
+              "pid": 31681,
+              "ppid": 31680
+            }
+          ],
+          "progress": [
+            {
+              "pid": 36131,
+              "ppid": 36130
+            }
+          ],
+          "prewarm": [],
+          "downloader": [],
+          "transport_guard": [
+            {
+              "pid": 1372,
+              "ppid": 1
+            }
+          ],
+          "handoff": []
+        },
+        "heartbeat_age_seconds": 819644.549769,
+        "web_services": [
+          {
+            "port": 54655,
+            "url": "http://127.0.0.1:54655/qtail-droid-full-training",
+            "http_status": 200,
+            "content_gate_passed": true,
+            "healthy": true,
+            "error": null
+          },
+          {
+            "port": 6222,
+            "url": "http://127.0.0.1:6222/qtail-droid-full-training",
+            "http_status": 200,
+            "content_gate_passed": true,
+            "healthy": true,
+            "error": null
+          }
+        ],
+        "web_gate_passed": true,
+        "launchd_supervision": {
+          "launchctl_returncode": 0,
+          "labels": {
+            "pipeline": {
+              "label": "com.qtail.droid-full-pipeline",
+              "source_plist": "/Users/avalok/work/Q-TAIL-MVP/launchd/com.qtail.droid-full-pipeline.plist",
+              "installed_plist": "/Users/avalok/Library/LaunchAgents/com.qtail.droid-full-pipeline.plist",
+              "source_sha256": "6b24fa883bf40fb0aa32940990c6748c7d5a2a95281f0c47af1ee5b3ca67cc2b",
+              "installed_sha256": "6b24fa883bf40fb0aa32940990c6748c7d5a2a95281f0c47af1ee5b3ca67cc2b",
+              "launchctl": {
+                "pid": null,
+                "last_exit_status": 0
+              },
+              "checks": {
+                "loaded": true,
+                "source_plist_exists": true,
+                "installed_plist_exists": true,
+                "installed_matches_source": true,
+                "label_matches": true,
+                "run_at_load": true,
+                "scheduled_retry_300s": true,
+                "launcher_bound": true
+              },
+              "passed": true
+            },
+            "transport_guard": {
+              "label": "com.qtail.uniclash-transport-guard",
+              "source_plist": "/Users/avalok/work/Q-TAIL-MVP/launchd/com.qtail.uniclash-transport-guard.plist",
+              "installed_plist": "/Users/avalok/Library/LaunchAgents/com.qtail.uniclash-transport-guard.plist",
+              "source_sha256": "6c8cc88167b9f410bd9859439c81c5efbf85e01653546fda6d0d8a2635975b97",
+              "installed_sha256": "6c8cc88167b9f410bd9859439c81c5efbf85e01653546fda6d0d8a2635975b97",
+              "launchctl": {
+                "pid": 1372,
+                "last_exit_status": 0
+              },
+              "checks": {
+                "loaded": true,
+                "source_plist_exists": true,
+                "installed_plist_exists": true,
+                "installed_matches_source": true,
+                "label_matches": true,
+                "run_at_load": true,
+                "keep_alive": true,
+                "guard_bound": true,
+                "interface_bound": true,
+                "network_service_bound": true,
+                "two_second_heartbeat": true
+              },
+              "passed": true
+            }
+          },
+          "passed": true,
+          "claim_boundary": "This proves the two user LaunchAgents are loaded and their installed plists match the audited repository configuration. It does not prove a future reboot will preserve external power, network availability, or the ORICO mount."
+        },
+        "code_sha256": {
+          "pipeline": "5d55778706ba6fe4c69a24258d1ffd637eda53d08936f1663248ad8862f5b410",
+          "checksum_manifest_builder": "88683936e547d44d09b63bb56edf2f5f21f641217c91cc710d8f955a8defc070",
+          "release_metadata_auditor": "9e71a32383fada4b2e5e4ff4a0b09b75c621501428d352385aa9059bd713ed62",
+          "downloader": "1ae5dbd04949fed700e32c8d4333296a56519b0940e1b3de6a35b51682bf8446",
+          "download_marker_verifier": "135fd5f675f99e96e4f1811e001f5ae3a6b7e17803a0ef6b85ca63f1fa177a27",
+          "download_marker_selftest": "da2c0f0c64e7c018f40bacfa8c2cb2eb4d13c642dd627fc5a124f84440c39122",
+          "mirror_verifier_selftest": "885b346381c08e846321b1378f1579d296f63c744153654cd244be1e7596f40d",
+          "downloader_single_writer_selftest": "d907a7e3b323503385e4c4623aa18ec0383e5b7ce97fae07791242fd3eb135d8",
+          "runtime_process_contract_selftest": "9f36c36f2dcb75dae90a57707fabba08478acc018c25b1f22a1c1a7a7bb16cb5",
+          "uniclash_pre_checksum_gate": "c483f15fdc1a6c2a12418b2800a14b687c4067ac07528f0eb2b133dc889cfd88",
+          "uniclash_pre_checksum_gate_selftest": "dcf2c3d539ae3f97a6fd0f9c294cd2a70e53484b33a57538e7d1ec0e59b67313",
+          "live_partial_marker_rejection_capture": "2b57543a416eeeb1fd73c56d14cbd81a9f92ef2a3eadedb3d8e402dd1992c698",
+          "transport_cleanup": "ce3fb21bd553b4fe04358dcca39323583da3c4a8e6ac82a3e7495adac12163ec",
+          "environment_capture": "6aac65e00bbaca1213b380f1fd0701785e735c4269caabf20690bd799cc7032e",
+          "mirror_verifier": "5e60eef32ebaaf50e279c5e604dea4a29a62d4148540b396b0a57fdecb08561a",
+          "cache_verifier": "5ec1afee7874a91f73cfd4ec2d5c28a4b50a0353ea2ab9ded333207f78c90124",
+          "incremental_closure_auditor": "3181a394c488f6d6696cf31d101b8b2ebda642b44f1ec81a81aa311167df4e62",
+          "incremental_closure_selftest": "dc932bd74aa8e4013e82619ebca40d534f49ab39fe3eb15b83ff9cd05ef40fdc",
+          "artifact_manifest_merger": "753f464184e13e32e86eff3852f202277b8d341efa2c1fadbe8b33803c7ff0cb",
+          "release_milestone_sealer": "2f52d97dd0f8bd205952c7dad94fe81bae6d9c4c85ad6071b26bad3a415a8aae",
+          "protocol_selftest": "8b90528667285d37b533994b3e092a796baa5eb7801f3f0f9baf887a8dc3db48",
+          "trainer": "c1f1151d18b49a753fed22dbad14488edd2c38c3692cf3ab35fe235715d5da1f",
+          "progress": "a763c5935cb80305acdc4eca21f86ff8e2877db8ddbc2e69a4c1cd27b7f1d601",
+          "stage_marker_verifier": "e81abfc9489415d447cef956ce343c9897c41f51c2a64208d126ac6c55363b7b",
+          "timeline_verifier": "551765943b9d40624525e3e2ad699010d124854b211fbbcfb8acbc7bcd240694",
+          "timeline_monotonic_selftest": "e84b2adc0114d6aed12f6056d74258cd73e8fb1e61b20438b6495c6391f3dd16",
+          "forecast_summarizer": "d109cd2f928aa8c75f2dc86956e04bc92744c060ce0007d3591e47b7fa4afbf6",
+          "web_services": "83fba2a5d3cf0cf3223ebbed629c57c4f28744eb409431ffc1a8b793e1b15ac9",
+          "feature_prewarm": "e46eb8a9597fe6192bb824b316d160d8b24383cdbea87173a25cf7c1e0a2c41f",
+          "pipeline_watchdog": "ceb4f8a1805532e14ddc706ae64c1234bbe47bc8e53ecdf094896f54ff3f1c12",
+          "generation_handoff": "423342d7b28e43cfd391882da77bbf826376b9217dbdfe2e5ad24de26045085c",
+          "page_qa": "c97bcd2d9422e975d4b1148ac864e03fb7c65c8f80ea87b59f09880a36da4120",
+          "page": "91e9f416c6ccb4d578cc20fa00d5b1428f6d3894ba8cd9f9f9c29b22489120ec"
+        }
+      }
+    },
+    {
+      "id": "final_page_qa",
+      "label": "新页面最终数据与桌面/移动端验收",
+      "passed": true,
+      "evidence": {
+        "page": "http://localhost:54655/qtail-droid-full-training",
+        "marker": "/Volumes/ORICO/qtail_full_training/manifests/FINAL_PAGE_QA_COMPLETE",
+        "committed": true,
+        "preview_active": false,
+        "qa_state": "committed",
+        "contract_blocker": "/Volumes/ORICO/qtail_full_training/results/qtail_droid_full/final_qa_contract_blocked.json"
+      }
+    }
+  ]
+}

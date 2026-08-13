@@ -43,23 +43,36 @@ write_heartbeat() {
   local phase="$1"
   local shard_count="$2"
   local child_pid="${3:-0}"
-  local temporary="$PREWARM_HEARTBEAT.tmp.$$"
+  if ! "$PYTHON" - \
+    "$PREWARM_HEARTBEAT" "$phase" "$shard_count" "$child_pid" "$$" <<'PY'
+import json
+import os
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
 
-  if ! printf '%s\n' \
-    '{' \
-    "  \"child_pid\": $child_pid," \
-    '  "control": "droid_feature_prewarm_pid_heartbeat_v1",' \
-    "  \"generated_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"," \
-    "  \"observed_complete_shards\": $shard_count," \
-    "  \"phase\": \"$phase\"," \
-    "  \"pid\": $$," \
-    '  "status": "alive"' \
-    '}' > "$temporary"; then
-    log "heartbeat write failed phase=$phase path=$temporary"
-    return 1
-  fi
-  if ! /bin/mv -f "$temporary" "$PREWARM_HEARTBEAT"; then
-    log "heartbeat publish failed phase=$phase path=$PREWARM_HEARTBEAT"
+path = Path(sys.argv[1])
+temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+payload = {
+    "child_pid": int(sys.argv[4]),
+    "control": "droid_feature_prewarm_pid_heartbeat_v1",
+    "generated_at": datetime.now(timezone.utc).isoformat(),
+    "observed_complete_shards": int(sys.argv[3]),
+    "phase": sys.argv[2],
+    "pid": int(sys.argv[5]),
+    "status": "alive",
+}
+try:
+    temporary.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    os.replace(temporary, path)
+finally:
+    temporary.unlink(missing_ok=True)
+PY
+  then
+    log "heartbeat atomic publish failed phase=$phase path=$PREWARM_HEARTBEAT"
     return 1
   fi
 }
@@ -95,7 +108,9 @@ heartbeat_sleep() {
 }
 
 while true; do
-  write_heartbeat "checking_mount" "$LAST_SHARD_COUNT" 0
+  if ! write_heartbeat "checking_mount" "$LAST_SHARD_COUNT" 0; then
+    exit 23
+  fi
   if ! /sbin/mount | /usr/bin/grep -Fq " on /Volumes/ORICO ("; then
     heartbeat_sleep "waiting_for_mount" "$LAST_SHARD_COUNT" 60
     continue

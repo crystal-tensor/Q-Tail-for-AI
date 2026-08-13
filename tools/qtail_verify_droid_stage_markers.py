@@ -51,6 +51,141 @@ COMPLETION_REQUIREMENT_IDS = {
     "runtime_health",
     "final_page_qa",
 }
+PIPELINE_GENERATION_GATES = (
+    "pre-checksum",
+    "pre-environment",
+    "pre-formal-training",
+)
+PIPELINE_GENERATION_CHECKS = {
+    "semantic_marker",
+    "running_status",
+    "marker_pid_matches",
+    "marker_script_matches",
+    "marker_job_root_matches",
+    "marker_sha_matches_current_source",
+    "marker_lock_owner_matches",
+    "live_lock_owner_matches",
+    "live_command_matches",
+}
+INCREMENTAL_CLOSURE_SELFTEST_CHECKS = frozenset(
+    {
+        "positive_current_closure",
+        "require_formal_matches_exact_full_gate",
+        "record_count_tamper_rejected",
+        "md5_ledger_tamper_rejected",
+        "md5_after_error_sample_limit_rejected",
+        "missing_listed_cache_rejected",
+        "post_snapshot_tfrecord_is_deferred",
+    }
+)
+HARDENING_SELFTEST_CONTROL_NAMES = frozenset(
+    {
+        "checksum_binding_positive",
+        "checksum_binding_tamper_rejected",
+        "transition_gate_positive",
+        "transition_gate_tun_rejected",
+        "incremental_closure_exact_seven_positive",
+        "incremental_closure_missing_formal_gate_rejected",
+        "incremental_closure_extra_check_rejected",
+        "incremental_closure_false_check_rejected",
+        "incremental_closure_formal_success_spoof_rejected",
+        "pipeline_generation_three_gate_positive",
+        "pipeline_generation_false_check_rejected",
+        "pipeline_generation_missing_gate_rejected",
+        "pipeline_generation_source_drift_rejected",
+        "recursive_manifest_positive",
+        "recursive_manifest_tamper_rejected",
+        "public_state_binding_positive",
+        "stale_public_state_binding_is_rejected",
+        "public_projection_snapshot_binding_positive",
+        "public_projection_live_tamper_rejected",
+        "final_path_contract_binds_only_immutable_closure",
+        "lease_bound_bootstrap_positive",
+        "bootstrap_artifact_tamper_rejected",
+        "terminal_log_gate_positive",
+        "terminal_log_predating_artifact_is_rejected",
+        "empty_log_is_rejected",
+        "precommit_results_remain_withheld",
+        "training_only_publication_leak_is_rejected",
+        "final_commit_without_valid_bootstrap_rejected",
+        "final_commit_with_expired_lease_rejected",
+        "final_commit_with_bootstrap_owner_mismatch_rejected",
+        "real_eight_of_nine_final_marker_commit",
+        "public_projection_without_postcommit_qa_is_rejected",
+        "atomic_eight_to_nine_with_postcommit_browser_marker",
+        "postcommit_browser_screenshot_tamper_rejected",
+        "public_projection_live_and_snapshot_match",
+        "sealed_projection_snapshot_tamper_rejected",
+        "sealed_final_marker_tamper_rejected",
+        (
+            "hardening_control_identity_contract_rejects_"
+            "missing_extra_or_duplicate"
+        ),
+    }
+)
+PROGRESS_PREVIEW_SELFTEST_CONTROL_NAMES = frozenset(
+    {
+        "preview_stage_is_qa_in_progress",
+        "preview_is_not_effective_completion",
+        "lease_bound_bootstrap_remains_sealing_not_complete",
+        "committed_marker_reaches_complete",
+        "sealed_final_without_public_projection_stays_eight_of_nine",
+        "bootstrap_projection_is_not_frozen",
+        "committed_projection_can_be_frozen",
+        "formal_pre_page_artifact_baseline_is_64",
+        "effective_qa_adds_only_nine_process_log_artifacts",
+        "complete_qa_adds_five_final_artifacts_without_baseline_drift",
+        "workspace_snapshot_parity_accepts_match_and_rejects_drift_or_escape",
+        "passed_json_artifact_is_ready",
+        "failed_corrupt_and_false_json_semantics_are_withheld",
+        "failed_final_qa_artifact_family_is_withheld",
+        "complete_final_qa_artifact_family_is_ready",
+    }
+)
+ARTIFACT_MANIFEST_SELFTEST_CONTROL_NAMES = frozenset(
+    {
+        "missing_optional_history_is_pruned",
+        "present_optional_history_is_retained_and_hashed",
+        "manifest_control_files_are_excluded",
+        "required_manifest_membership_drift_is_rejected",
+        "missing_formal_artifact_is_rejected",
+        "escaped_symlink_is_rejected",
+        "dotdot_outside_addition_is_rejected",
+        "required_path_set_drift_is_rejected",
+    }
+)
+PIPELINE_SHELL_SELFTEST_CONTROL_NAMES = frozenset(
+    {
+        "current_pipeline_contract_passes",
+        "removed_training_or_verified_mirror_gate_is_rejected",
+        "removed_environment_code_binding_is_rejected",
+        "removed_public_projection_commit_is_rejected",
+        "removed_postcommit_browser_qa_is_rejected",
+        "removed_postcommit_marker_gate_is_rejected",
+        "terminal_sealing_order_passes",
+        "reversed_terminal_sealing_order_is_rejected",
+        "removed_read_only_completed_state_is_rejected",
+        "removed_parent_ownership_gate_is_rejected",
+        "runtime_fingerprint_cannot_replace_checkpoint_binding",
+    }
+)
+UNICLASH_GATE_SELFTEST_CHECKS = frozenset(
+    {
+        "positive_clean_direct_guard",
+        "core_off_rejected",
+        "tun_on_rejected",
+        "stale_guard_rejected",
+        "missing_gsutil_policy_rejected",
+        "system_bypass_failure_rejected",
+        "idle_core_restart_pause_is_disclosed_and_accepted",
+        "blocked_sample_without_event_rejected",
+        "core_restart_during_transfer_rejected",
+        "unknown_policy_pause_rejected",
+        "wrong_route_history_rejected",
+        "live_tunnel_route_rejected",
+        "global_violation_rejected",
+    }
+)
 
 
 def now() -> str:
@@ -70,6 +205,67 @@ def sha256(path: Path) -> str:
         while chunk := handle.read(1024 * 1024):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def validate_environment_code_manifest(
+    path: Path,
+) -> tuple[list[str], dict[str, Any]]:
+    errors: list[str] = []
+    try:
+        environment = read_json(path)
+    except (OSError, ValueError, TypeError) as error:
+        return [f"environment manifest is unreadable: {error}"], {}
+    gates = environment.get("gates", {})
+    if (
+        environment.get("status") != "complete"
+        or not isinstance(gates, dict)
+        or not gates
+        or not all(value is True for value in gates.values())
+    ):
+        errors.append("environment manifest gates are not complete")
+
+    code_rows = environment.get("code", [])
+    seen_paths: set[str] = set()
+    if not isinstance(code_rows, list) or not code_rows:
+        errors.append("environment code inventory is empty")
+        code_rows = []
+    for index, item in enumerate(code_rows):
+        if not isinstance(item, dict):
+            errors.append(f"environment code row {index} is invalid")
+            continue
+        raw_path = str(item.get("path", "")).strip()
+        expected = str(item.get("sha256", "")).strip().lower()
+        if not raw_path or raw_path in seen_paths:
+            errors.append(
+                f"environment code path is missing or duplicated: {raw_path}"
+            )
+            continue
+        seen_paths.add(raw_path)
+        code_path = Path(raw_path)
+        if (
+            item.get("exists") is not True
+            or len(expected) != 64
+            or any(character not in "0123456789abcdef" for character in expected)
+            or not code_path.is_file()
+            or sha256(code_path) != expected
+        ):
+            errors.append(f"environment-bound code drifted: {raw_path}")
+
+    snapshot = environment.get("orchestration_snapshot", {})
+    if not isinstance(snapshot, dict):
+        snapshot = {}
+    snapshot_path = Path(str(snapshot.get("manifest", "")))
+    snapshot_sha256 = str(snapshot.get("manifest_sha256", "")).lower()
+    if (
+        snapshot.get("code_parity_passed") is not True
+        or snapshot.get("manifest_errors") not in ([], None)
+        or int(snapshot.get("code_mismatch_count", -1)) != 0
+        or not snapshot_path.is_file()
+        or len(snapshot_sha256) != 64
+        or sha256(snapshot_path) != snapshot_sha256
+    ):
+        errors.append("ORICO orchestration snapshot binding is invalid")
+    return errors, environment
 
 
 def artifact_entry(path: Path) -> dict[str, Any]:
@@ -112,6 +308,109 @@ def atomic_copy(source: Path, destination: Path) -> None:
             pass
 
 
+def validate_pipeline_generation_gate(
+    path: Path,
+    *,
+    script_path: Path | None = None,
+) -> list[str]:
+    errors: list[str] = []
+    script = (
+        script_path
+        if script_path is not None
+        else Path(__file__).resolve().parents[1]
+        / "scripts"
+        / "qtail_orico_full_pipeline.sh"
+    )
+    try:
+        payload = read_json(path)
+        gates = payload.get("gates")
+        if (
+            payload.get("format_version")
+            != "qtail_pipeline_generation_gate_v1"
+        ):
+            errors.append("pipeline generation gate version is invalid")
+        if payload.get("status") != "passed":
+            errors.append("pipeline generation gate status is not passed")
+        if payload.get("latest_gate") != PIPELINE_GENERATION_GATES[-1]:
+            errors.append("pipeline generation gate did not reach formal training")
+        if not isinstance(gates, list) or len(gates) != len(
+            PIPELINE_GENERATION_GATES
+        ):
+            return [
+                *errors,
+                "pipeline generation gate history is incomplete",
+            ]
+
+        script_hash = sha256(script)
+        observed_pids: set[int] = set()
+        observed_hashes: set[str] = set()
+        for expected_gate, entry in zip(
+            PIPELINE_GENERATION_GATES,
+            gates,
+            strict=True,
+        ):
+            if not isinstance(entry, dict):
+                errors.append(
+                    f"pipeline generation gate entry is invalid: {expected_gate}"
+                )
+                continue
+            checks = entry.get("checks")
+            pid = entry.get("pid")
+            try:
+                pid = int(pid)
+                lock_owner_pid = int(entry.get("lock_owner_pid"))
+            except (TypeError, ValueError):
+                pid = -1
+                lock_owner_pid = -2
+            expected_command = f"/bin/zsh {script}"
+            current_hash = str(entry.get("current_script_sha256", ""))
+            marker_hash = str(entry.get("marker_script_sha256", ""))
+            if entry.get("gate") != expected_gate:
+                errors.append(
+                    f"pipeline generation gate order differs: {expected_gate}"
+                )
+            if entry.get("passed") is not True:
+                errors.append(
+                    f"pipeline generation gate is not passed: {expected_gate}"
+                )
+            if (
+                not isinstance(checks, dict)
+                or set(checks) != PIPELINE_GENERATION_CHECKS
+                or not all(value is True for value in checks.values())
+            ):
+                errors.append(
+                    f"pipeline generation checks are incomplete: {expected_gate}"
+                )
+            if pid <= 0 or lock_owner_pid != pid:
+                errors.append(
+                    f"pipeline generation PID binding is invalid: {expected_gate}"
+                )
+            if (
+                entry.get("command") != expected_command
+                or entry.get("expected_command") != expected_command
+            ):
+                errors.append(
+                    f"pipeline generation command binding is invalid: {expected_gate}"
+                )
+            if (
+                len(current_hash) != 64
+                or marker_hash != current_hash
+                or current_hash != script_hash
+            ):
+                errors.append(
+                    f"pipeline generation source hash is invalid: {expected_gate}"
+                )
+            observed_pids.add(pid)
+            observed_hashes.add(current_hash)
+        if len(observed_pids) != 1:
+            errors.append("pipeline generation gates span multiple PIDs")
+        if observed_hashes != {script_hash}:
+            errors.append("pipeline generation gates span multiple source hashes")
+    except (OSError, TypeError, ValueError) as error:
+        errors.append(f"pipeline generation gate is unreadable: {error}")
+    return errors
+
+
 def validate_data_continuity_summary(payload: Any) -> list[str]:
     errors: list[str] = []
     if not isinstance(payload, dict):
@@ -147,6 +446,7 @@ def training_paths(job_root: Path) -> list[Path]:
         result_root / "droid_mirror_verifier_selftest.json",
         result_root / "droid_downloader_single_writer_selftest.json",
         result_root / "droid_runtime_process_contract_selftest.json",
+        result_root / "pipeline_generation_gate.json",
         result_root / "droid_stage_marker_hardening_selftest.json",
         result_root / "droid_progress_preview_selftest.json",
         result_root / "droid_artifact_manifest_merge_selftest.json",
@@ -640,14 +940,24 @@ def validate_transition_gate(path: Path, label: str) -> list[str]:
     return errors
 
 
-def validate_hardening_selftest(path: Path) -> list[str]:
+def validate_hardening_selftest(
+    path: Path,
+    expected_control_names: frozenset[str] = HARDENING_SELFTEST_CONTROL_NAMES,
+) -> list[str]:
     try:
         payload = read_json(path)
         controls = payload.get("controls", [])
+        control_names = [
+            str(control.get("name"))
+            for control in controls
+            if isinstance(control, dict)
+        ]
         if (
             payload.get("status") != "passed"
             or not isinstance(controls, list)
-            or not controls
+            or len(controls) != len(expected_control_names)
+            or len(control_names) != len(controls)
+            or set(control_names) != expected_control_names
             or int(payload.get("controls_passed", -1)) != len(controls)
             or int(payload.get("controls_total", -1)) != len(controls)
             or any(
@@ -660,6 +970,99 @@ def validate_hardening_selftest(path: Path) -> list[str]:
     except (OSError, ValueError, TypeError) as error:
         return [f"hardening self-test is unreadable: {path.name}: {error}"]
     return []
+
+
+def validate_incremental_closure_selftest_payload(
+    payload: dict[str, Any],
+) -> list[str]:
+    errors: list[str] = []
+    checks = payload.get("checks")
+    cases = payload.get("cases")
+    if (
+        payload.get("format_version")
+        != "qtail_droid_incremental_closure_selftest_v2"
+    ):
+        errors.append("incremental closure control version is invalid")
+    if payload.get("status") != "passed":
+        errors.append("incremental closure control status is not passed")
+    if not isinstance(checks, dict):
+        errors.append("incremental closure checks are not an object")
+    elif set(checks) != INCREMENTAL_CLOSURE_SELFTEST_CHECKS:
+        errors.append("incremental closure checks are not the exact 7")
+    elif any(
+        checks.get(name) is not True
+        for name in INCREMENTAL_CLOSURE_SELFTEST_CHECKS
+    ):
+        errors.append("incremental closure checks are not all true")
+    if payload.get("failed_checks") != []:
+        errors.append("incremental closure controls report failed checks")
+    if not isinstance(cases, list) or len(cases) != len(
+        INCREMENTAL_CLOSURE_SELFTEST_CHECKS
+    ):
+        errors.append("incremental closure cases are not the exact 7")
+        return errors
+    if any(not isinstance(case, dict) for case in cases):
+        errors.append("incremental closure case entry is invalid")
+        return errors
+    case_by_name = {
+        str(case.get("name")): case
+        for case in cases
+        if isinstance(case, dict)
+    }
+    if set(case_by_name) != INCREMENTAL_CLOSURE_SELFTEST_CHECKS:
+        errors.append("incremental closure case names are not the exact 7")
+        return errors
+    if any(
+        case.get("passed") is not True for case in case_by_name.values()
+    ):
+        errors.append("incremental closure cases are not all passed")
+
+    positive = case_by_name["positive_current_closure"]
+    if (
+        positive.get("expected_success") is not True
+        or int(positive.get("returncode", -1)) != 0
+    ):
+        errors.append("positive incremental closure control is invalid")
+
+    formal = case_by_name["require_formal_matches_exact_full_gate"]
+    if (
+        formal.get("expected_success") is not False
+        or int(formal.get("returncode", 0)) == 0
+        or formal.get("formal_full_mirror_gate") is not False
+        or formal.get("expected_formal_full_mirror_gate") is not False
+    ):
+        errors.append("formal exact-full-gate rejection control is invalid")
+
+    for name in (
+        "record_count_tamper_rejected",
+        "md5_ledger_tamper_rejected",
+        "md5_after_error_sample_limit_rejected",
+        "missing_listed_cache_rejected",
+    ):
+        case = case_by_name[name]
+        if (
+            case.get("expected_success") is not False
+            or int(case.get("returncode", 0)) == 0
+        ):
+            errors.append(f"destructive closure control is invalid: {name}")
+
+    deferred = case_by_name["post_snapshot_tfrecord_is_deferred"]
+    if (
+        deferred.get("expected_success") is not True
+        or int(deferred.get("returncode", -1)) != 0
+        or int(deferred.get("deferred_after_snapshot_count", -1)) != 1
+        or int(
+            deferred.get(
+                "expected_deferred_after_snapshot_count",
+                -1,
+            )
+        )
+        != 1
+        or deferred.get("formal_full_mirror_gate") is not False
+        or deferred.get("expected_formal_full_mirror_gate") is not False
+    ):
+        errors.append("post-snapshot deferral control is invalid")
+    return errors
 
 
 def validate_training_semantics(job_root: Path) -> list[str]:
@@ -676,13 +1079,32 @@ def validate_training_semantics(job_root: Path) -> list[str]:
         ("uniclash_pre_training_gate.json", "training launch"),
     ):
         errors.extend(validate_transition_gate(result_root / filename, label))
-    for filename in (
-        "droid_stage_marker_hardening_selftest.json",
-        "droid_progress_preview_selftest.json",
-        "droid_artifact_manifest_merge_selftest.json",
-        "droid_pipeline_shell_contract_selftest.json",
-    ):
-        errors.extend(validate_hardening_selftest(result_root / filename))
+    errors.extend(
+        validate_pipeline_generation_gate(
+            result_root / "pipeline_generation_gate.json"
+        )
+    )
+    hardening_reports = {
+        "droid_stage_marker_hardening_selftest.json": (
+            HARDENING_SELFTEST_CONTROL_NAMES
+        ),
+        "droid_progress_preview_selftest.json": (
+            PROGRESS_PREVIEW_SELFTEST_CONTROL_NAMES
+        ),
+        "droid_artifact_manifest_merge_selftest.json": (
+            ARTIFACT_MANIFEST_SELFTEST_CONTROL_NAMES
+        ),
+        "droid_pipeline_shell_contract_selftest.json": (
+            PIPELINE_SHELL_SELFTEST_CONTROL_NAMES
+        ),
+    }
+    for filename, expected_names in hardening_reports.items():
+        errors.extend(
+            validate_hardening_selftest(
+                result_root / filename,
+                expected_names,
+            )
+        )
     errors.extend(
         validate_artifact_manifest_entries(
             result_root / "droid_training_artifact_manifest.json"
@@ -753,9 +1175,11 @@ def validate_training_semantics(job_root: Path) -> list[str]:
         checks = runtime_process.get("checks", {})
         if (
             runtime_process.get("status") != "passed"
-            or int(runtime_process.get("checks_passed", -1)) != 14
-            or int(runtime_process.get("checks_total", -1)) != 14
-            or len(checks) != 14
+            or runtime_process.get("control")
+            != "droid_runtime_process_contract_v11"
+            or int(runtime_process.get("checks_passed", -1)) != 16
+            or int(runtime_process.get("checks_total", -1)) != 16
+            or len(checks) != 16
             or not all(value is True for value in checks.values())
         ):
             errors.append("runtime process controls are incomplete")
@@ -769,11 +1193,11 @@ def validate_training_semantics(job_root: Path) -> list[str]:
         controls = gate_order.get("controls", [])
         if (
             gate_order.get("version")
-            != "qtail_droid_training_gate_order_selftest_v1"
+            != "qtail_droid_training_gate_order_selftest_v2"
             or gate_order.get("status") != "passed"
-            or int(gate_order.get("controls_passed", -1)) != 8
-            or int(gate_order.get("controls_total", -1)) != 8
-            or len(controls) != 8
+            or int(gate_order.get("controls_passed", -1)) != 11
+            or int(gate_order.get("controls_total", -1)) != 11
+            or len(controls) != 11
             or not all(
                 isinstance(control, dict)
                 and control.get("passed") is True
@@ -807,9 +1231,11 @@ def validate_training_semantics(job_root: Path) -> list[str]:
         checks = pre_checksum_selftest.get("checks", {})
         if (
             pre_checksum_selftest.get("status") != "passed"
-            or int(pre_checksum_selftest.get("checks_passed", -1)) != 10
-            or int(pre_checksum_selftest.get("checks_total", -1)) != 10
-            or len(checks) != 10
+            or int(pre_checksum_selftest.get("checks_passed", -1))
+            != len(UNICLASH_GATE_SELFTEST_CHECKS)
+            or int(pre_checksum_selftest.get("checks_total", -1))
+            != len(UNICLASH_GATE_SELFTEST_CHECKS)
+            or set(checks) != UNICLASH_GATE_SELFTEST_CHECKS
             or not all(value is True for value in checks.values())
         ):
             errors.append(
@@ -982,23 +1408,21 @@ def validate_training_semantics(job_root: Path) -> list[str]:
         )
         if (
             environment_test.get("status") != "passed"
-            or len(environment_test.get("checks", {})) != 5
+            or environment_test.get("contract_version")
+            != "qtail_droid_environment_contract_selftest_v3"
+            or len(environment_test.get("checks", {})) != 9
             or not all(environment_test.get("checks", {}).values())
         ):
-            errors.append("environment contract self-test is not 5/5")
+            errors.append(
+                "environment contract self-test is not exact v3 9/9"
+            )
     except (OSError, ValueError, TypeError) as error:
         errors.append(f"environment contract self-test is unreadable: {error}")
 
-    try:
-        environment = read_json(result_root / "droid_environment_manifest.json")
-        if (
-            environment.get("status") != "complete"
-            or not environment.get("gates")
-            or not all(environment.get("gates", {}).values())
-        ):
-            errors.append("environment manifest gates are not complete")
-    except (OSError, ValueError, TypeError) as error:
-        errors.append(f"environment manifest is unreadable: {error}")
+    environment_errors, environment = validate_environment_code_manifest(
+        result_root / "droid_environment_manifest.json"
+    )
+    errors.extend(environment_errors)
 
     try:
         cache = read_json(result_root / "droid_feature_cache_verification.json")
@@ -1052,16 +1476,9 @@ def validate_training_semantics(job_root: Path) -> list[str]:
         closure_selftest = read_json(
             result_root / "droid_incremental_closure_selftest.json"
         )
-        checks = closure_selftest.get("checks", {})
-        if (
-            closure_selftest.get("format_version")
-            != "qtail_droid_incremental_closure_selftest_v2"
-            or closure_selftest.get("status") != "passed"
-            or len(checks) != 6
-            or not all(value is True for value in checks.values())
-            or checks.get("post_snapshot_tfrecord_is_deferred") is not True
-        ):
-            errors.append("incremental closure controls are not 6/6")
+        errors.extend(
+            validate_incremental_closure_selftest_payload(closure_selftest)
+        )
     except (OSError, ValueError, TypeError) as error:
         errors.append(
             f"incremental closure controls are unreadable: {error}"
@@ -1124,6 +1541,7 @@ def validate_training_semantics(job_root: Path) -> list[str]:
     except (OSError, ValueError, TypeError) as error:
         errors.append(f"release milestones are unreadable: {error}")
 
+    checkpoint_contract: dict[str, Any] = {}
     try:
         checkpoint_manifest = read_json(
             result_root / "droid_intermediate_checkpoint_manifest.json"
@@ -1426,6 +1844,12 @@ def validate_training_semantics(job_root: Path) -> list[str]:
         checkpoint_audit = report.get(
             "intermediate_checkpoint_audit", {}
         )
+        environment_code_binding = report.get(
+            "environment_code_binding", {}
+        )
+        environment_manifest_path = (
+            result_root / "droid_environment_manifest.json"
+        )
         tail_gain = (
             float(effect["qtail_pred_tail_share"])
             - float(effect["source_pred_tail_share"])
@@ -1510,13 +1934,22 @@ def validate_training_semantics(job_root: Path) -> list[str]:
         runtime_environment_fingerprint = str(
             compute.get("runtime_environment_fingerprint", "")
         )
+        checkpoint_environment_fingerprint = str(
+            compute.get("checkpoint_environment_fingerprint", "")
+        )
+        checkpoint_environment = compute.get(
+            "checkpoint_environment_contract", {}
+        )
+        checkpoint_formal_binding = checkpoint_environment.get(
+            "formal_environment_binding", {}
+        ) if isinstance(checkpoint_environment, dict) else {}
         resume_environment_valid = all(
             item.get("environment_fingerprint")
-            == runtime_environment_fingerprint
+            == checkpoint_environment_fingerprint
             and (
                 not item.get("resumed")
                 or item.get("checkpoint_environment_fingerprint")
-                == runtime_environment_fingerprint
+                == checkpoint_environment_fingerprint
             )
             for item in compute.get("resume", {}).values()
         )
@@ -1565,6 +1998,26 @@ def validate_training_semantics(job_root: Path) -> list[str]:
             or int(input_audit.get("formal_expected_total_bytes", -1))
             != FORMAL_EXPECTED_BYTES
             or input_audit.get("current_binding") != current_download_binding
+            or environment_code_binding.get("passed") is not True
+            or environment_code_binding.get("required") is not True
+            or environment_code_binding.get("manifest")
+            != str(environment_manifest_path)
+            or environment_code_binding.get("manifest_sha256")
+            != sha256(environment_manifest_path)
+            or int(
+                environment_code_binding.get("checked_code_entries", -1)
+            )
+            != len(environment.get("code", []))
+            or int(environment_code_binding.get("mismatch_count", -1)) != 0
+            or environment_code_binding.get("errors") != []
+            or environment_code_binding.get(
+                "snapshot_code_parity_passed"
+            )
+            is not True
+            or environment_code_binding.get("snapshot_manifest_sha256")
+            != environment.get("orchestration_snapshot", {}).get(
+                "manifest_sha256"
+            )
             or int(trajectory.get("tfrecord_shards_parsed", -1))
             != FORMAL_EXPECTED_TFRECORDS
             or int(trajectory.get("records_decoded", -1))
@@ -1575,6 +2028,34 @@ def validate_training_semantics(job_root: Path) -> list[str]:
             )
             != 1.0
             or len(runtime_environment_fingerprint) != 64
+            or len(checkpoint_environment_fingerprint) != 64
+            or checkpoint_contract.get("environment_fingerprint")
+            != checkpoint_environment_fingerprint
+            or checkpoint_environment.get("version")
+            != "qtail_checkpoint_environment_v2"
+            or checkpoint_environment.get("formal_run") is not True
+            or checkpoint_environment.get("runtime_environment")
+            != compute.get("runtime_environment")
+            or checkpoint_formal_binding.get("required") is not True
+            or checkpoint_formal_binding.get("passed") is not True
+            or checkpoint_formal_binding.get(
+                "environment_manifest_sha256"
+            )
+            != environment_code_binding.get("manifest_sha256")
+            or checkpoint_formal_binding.get(
+                "checked_code_aggregate_sha256"
+            )
+            != environment_code_binding.get(
+                "checked_code_aggregate_sha256"
+            )
+            or checkpoint_formal_binding.get(
+                "orico_snapshot_manifest_sha256"
+            )
+            != environment_code_binding.get("snapshot_manifest_sha256")
+            or checkpoint_formal_binding.get(
+                "snapshot_code_parity_passed"
+            )
+            is not True
             or compute.get("same_environment_fingerprint") is not True
             or not resume_environment_valid
             or bootstrap.get("p_gain_le_zero_is_p_value") is not False
@@ -1768,7 +2249,7 @@ def validate_final_precommit_state(job_root: Path) -> list[str]:
             or int(audit.get("passed_requirements", -1)) != 8
             or int(audit.get("total_requirements", -1)) != 9
             or audit.get("experiment_execution_valid") is not True
-            or audit.get("formal_results_publishable") is not True
+            or audit.get("formal_results_publishable") is not False
             or audit.get("outcome_is_completion_gate") is not False
             or any(item.get("passed") is not True for item in non_final)
             or final_requirement.get("passed") is not False
@@ -1871,6 +2352,7 @@ def commit_public_projection_marker(job_root: Path) -> dict[str, Any]:
         candidate_audit["status"] = "complete"
         candidate_audit["passed_requirements"] = 9
         candidate_audit["total_requirements"] = 9
+        candidate_audit["formal_results_publishable"] = True
 
         candidate_latest = copy.deepcopy(read_json(latest))
         candidate_latest["generated_at"] = candidate_audit["generated_at"]

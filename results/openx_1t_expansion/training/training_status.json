@@ -1,0 +1,247 @@
+{
+  "generated_at": "2026-08-12T04:15:16.957876+00:00",
+  "status": "complete",
+  "training_scope": "all_complete_shards_record_sampled",
+  "claim_boundary": [
+    "This is a real Open X record-informed Q-Tail allocation-head training run.",
+    "Every complete TFRecord shard is covered; a bounded, deterministic number of episodes is decoded per shard.",
+    "It is not full robot-policy training and it does not prove downstream policy success without a same-policy run.",
+    "Both source and Q-Tail heads use identical architecture, optimizer, steps, features and seed."
+  ],
+  "data_dir": "/Volumes/ORICO/qtail_full_training/data/openx_demo",
+  "datasets": [
+    "austin_buds_dataset_converted_externally_to_rlds",
+    "austin_sirius_dataset_converted_externally_to_rlds",
+    "berkeley_fanuc_manipulation",
+    "berkeley_mvp_converted_externally_to_rlds",
+    "columbia_cairlab_pusht_real",
+    "dlr_sara_pour_converted_externally_to_rlds",
+    "furniture_bench_dataset_converted_externally_to_rlds",
+    "kuka",
+    "language_table",
+    "language_table_sim",
+    "nyu_door_opening_surprising_effectiveness",
+    "stanford_robocook_converted_externally_to_rlds",
+    "ucsd_kitchen_dataset_converted_externally_to_rlds"
+  ],
+  "shard_count": 3673,
+  "total_bytes": 1283683388208,
+  "total_gib": 1195.523,
+  "steps": 20000,
+  "model_artifact": {
+    "path": "/Volumes/ORICO/qtail_full_training/results/qtail_openx_1t_expansion/training/qtail_allocation_head.pt",
+    "sha256": "e2f8b5aedd67c9b3eb5d8ee2d62a595897e60a01235a33ac6d3579eb8624fdb6",
+    "feature_names": [
+      "log_bytes",
+      "shard_size_rarity",
+      "dataset_frequency",
+      "episode_count_rarity",
+      "mean_episode_steps",
+      "reward_failure_proxy",
+      "action_complexity",
+      "instruction_complexity",
+      "instruction_rarity",
+      "terminal_rate"
+    ],
+    "parameter_count": 897
+  },
+  "trajectory_evidence": {
+    "tfrecord_shards_attempted": 3673,
+    "tfrecord_shards_parsed": 3673,
+    "record_parse_rate": 1.0,
+    "records_per_shard_cap": 4,
+    "records_decoded": 12557,
+    "mean_episode_steps": 255.4015564025774,
+    "features_include": [
+      "episode length",
+      "reward",
+      "action statistics",
+      "instruction complexity",
+      "terminal rate"
+    ]
+  },
+  "source_final_kl": -2.5437475414946675e-07,
+  "qtail_final_kl": 3.991471021436155e-05,
+  "effect_metrics": {
+    "tail_definition": "top_30_percent_by_record_informed_tail_score",
+    "source_tail_share": 0.19330479204654694,
+    "qtail_tail_share": 0.5339337587356567,
+    "target_tail_share_gain_pp": 34.06289666891098,
+    "source_pred_tail_share": 0.19332101941108704,
+    "qtail_pred_tail_share": 0.5339284539222717,
+    "predicted_tail_share_gain_pp": 34.06074345111847,
+    "consistent_with_pt_tail_goal": true
+  },
+  "source_history": [
+    {
+      "step": 0,
+      "kl": 0.43183520436286926
+    },
+    {
+      "step": 1000,
+      "kl": 2.369390131207183e-05
+    },
+    {
+      "step": 2000,
+      "kl": 4.910242296318756e-06
+    },
+    {
+      "step": 3000,
+      "kl": 1.8523132894188166e-06
+    },
+    {
+      "step": 4000,
+      "kl": 8.8351521299046e-07
+    },
+    {
+      "step": 5000,
+      "kl": 1.182598225568654e-06
+    },
+    {
+      "step": 6000,
+      "kl": -1.2449720543372678e-07
+    },
+    {
+      "step": 7000,
+      "kl": 7.621997610840481e-07
+    },
+    {
+      "step": 8000,
+      "kl": 2.8293015930103138e-08
+    },
+    {
+      "step": 9000,
+      "kl": 5.265937943477184e-07
+    },
+    {
+      "step": 10000,
+      "kl": 1.0392341209808365e-07
+    },
+    {
+      "step": 11000,
+      "kl": 1.510133733972907e-05
+    },
+    {
+      "step": 12000,
+      "kl": -8.334109224961139e-08
+    },
+    {
+      "step": 13000,
+      "kl": 2.558282358222641e-05
+    },
+    {
+      "step": 14000,
+      "kl": 5.443371264846064e-06
+    },
+    {
+      "step": 15000,
+      "kl": 1.5097430150490254e-07
+    },
+    {
+      "step": 16000,
+      "kl": 2.2053609427530318e-07
+    },
+    {
+      "step": 17000,
+      "kl": 6.940004823263735e-06
+    },
+    {
+      "step": 18000,
+      "kl": 7.346807251451537e-08
+    },
+    {
+      "step": 19000,
+      "kl": -2.2290350898401812e-08
+    },
+    {
+      "step": 20000,
+      "kl": -2.5437475414946675e-07
+    }
+  ],
+  "qtail_history": [
+    {
+      "step": 0,
+      "kl": 0.18020066618919373
+    },
+    {
+      "step": 1000,
+      "kl": 0.0006447924533858895
+    },
+    {
+      "step": 2000,
+      "kl": 0.0003586938255466521
+    },
+    {
+      "step": 3000,
+      "kl": 0.0002446638245601207
+    },
+    {
+      "step": 4000,
+      "kl": 0.00016860372852534056
+    },
+    {
+      "step": 5000,
+      "kl": 0.00012239281204529107
+    },
+    {
+      "step": 6000,
+      "kl": 9.287084685638547e-05
+    },
+    {
+      "step": 7000,
+      "kl": 7.705848838668317e-05
+    },
+    {
+      "step": 8000,
+      "kl": 6.752157059963793e-05
+    },
+    {
+      "step": 9000,
+      "kl": 6.078350997995585e-05
+    },
+    {
+      "step": 10000,
+      "kl": 5.6045893870759755e-05
+    },
+    {
+      "step": 11000,
+      "kl": 5.6286444305442274e-05
+    },
+    {
+      "step": 12000,
+      "kl": 5.103775765746832e-05
+    },
+    {
+      "step": 13000,
+      "kl": 4.8313275328837335e-05
+    },
+    {
+      "step": 14000,
+      "kl": 4.630415060091764e-05
+    },
+    {
+      "step": 15000,
+      "kl": 4.480021016206592e-05
+    },
+    {
+      "step": 16000,
+      "kl": 5.078977847006172e-05
+    },
+    {
+      "step": 17000,
+      "kl": 5.805466207675636e-05
+    },
+    {
+      "step": 18000,
+      "kl": 6.206094985827804e-05
+    },
+    {
+      "step": 19000,
+      "kl": 4.070755676366389e-05
+    },
+    {
+      "step": 20000,
+      "kl": 3.991471021436155e-05
+    }
+  ]
+}

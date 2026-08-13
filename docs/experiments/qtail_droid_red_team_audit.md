@@ -254,7 +254,8 @@ Disposition: copy the exact bytes of all four input documents into one
 temporary frozen test set before any control runs, record their snapshot
 SHA-256 values, and require the synthetic post-snapshot mutation to increase
 the frozen baseline by exactly one. Three consecutive controls against the
-active downloader and the next production prewarm pass must all report 6/6.
+active downloader and the next production prewarm pass must all report exact
+7/7, including the formal-mode rejection control.
 
 ### RT-15: Scientific direction was incorrectly coupled to completion
 
@@ -505,8 +506,8 @@ manifest, stage-marker validator, completion audit, and final browser QA.
 
 During the same audit, the final browser verifier was found to expect the
 obsolete runtime-process control count of 8/8 while the current authoritative
-artifact and stage validator require 13/13. The browser gate now requires
-13/13, preventing a false final rejection after a valid training run.
+artifact and stage validator require 14/14. The browser gate now requires
+14/14, preventing a false final rejection after a valid training run.
 
 ### RT-33: Training-start evidence could precede the last formal gate
 
@@ -622,11 +623,11 @@ valid full training run.
 
 Disposition: progress validation, stage-marker validation, formal browser
 validation, and the visible audit text now all require 13/13 downloader
-controls. Runtime controls were also expanded to 13/13 to cover the repaired
-detached-screen-safe handoff ownership contract and its destructive
-mutations. The current protocol, environment, downloader, runtime, stage
-sealing, and desktop/mobile smoke suites were rerun from the same source
-generation before the ORICO code snapshot was resealed.
+controls. Runtime controls were later expanded to 14/14 to cover the repaired
+detached-screen-safe handoff ownership contract, generation-marker binding,
+and their destructive mutations. The current protocol, environment,
+downloader, runtime, stage sealing, and desktop/mobile smoke suites were rerun
+from the same source generation before the ORICO code snapshot was resealed.
 
 ### RT-39: The support gate did not require the full minimum effect
 
@@ -664,7 +665,7 @@ A regenerated manifest could faithfully hash a checkpoint whose model tensor
 or optimizer moment had already been modified, while retaining plausible
 metadata.
 
-Disposition: checkpoint format v5 recomputes canonical model-state and
+Disposition: checkpoint format v6 recomputes canonical model-state and
 optimizer-state content hashes and links each stage checkpoint to its parent
 file SHA-256. Resume, manifest construction, stage sealing, and browser QA
 require the full chain. Destructive controls mutate a model tensor and an
@@ -765,7 +766,7 @@ process and fresh activity evidence. Progress binds to `latest.json`, watchdog
 binds to its atomic status file, and prewarm must either match the complete
 TFRecord count or expose a fresh active extraction status. Stale or duplicate
 instances are terminated with their descendants before one detached
-replacement is created. Runtime contract v6 keeps 13/13 controls while adding
+replacement is created. Runtime contract v6 keeps 14/14 controls while adding
 negative source mutations for missing freshness, missing tree cleanup, and zsh
 `$path` shadowing. A live probe proved stable progress, watchdog, prewarm,
 pipeline, downloader, and transport-guard PIDs across a healthy launcher pass.
@@ -792,6 +793,280 @@ count, classifier-gap count, and inter-epoch gaps. The page exposes the
 pre-guard evidence gap next to the zero observed VPN-route violations. Neither
 the verifier nor the page treats unobserved bytes as proof of direct or VPN
 transport.
+
+### RT-49: Completion projection inverted two authoritative control counts
+
+Severity: P1
+
+The downloader single-writer self-test passed 13/13 and the runtime-process
+contract passed 14/14, but the completion projection required 14 downloader
+checks and 13 runtime checks. Both direct artifacts were green while
+`intermediate_artifacts` could never become true, so a valid formal run would
+have remained stuck below 9/9.
+
+Disposition: completion now requires exactly 13 downloader controls and 14
+runtime controls. Live desktop/mobile smoke QA reads all nine self-test-backed
+completion fields, requires each direct artifact to report `status=passed`,
+requires the corresponding projection to be true, and records the complete
+artifact-to-field mapping in `live_page_smoke.json`. A regression in either
+the direct evidence or its public projection therefore fails before formal
+publication.
+
+### RT-50: Frozen preflight silently lost its per-shard record cap
+
+Severity: P1
+
+The full-run safety override keyed only on `max_shards == 0`. A bounded run
+using the newer `--shard-list` interface also leaves `max_shards` at zero, so
+the trainer silently replaced `--records-per-shard 2` with all-record mode.
+That made the declared bounded preflight scope disagree with the actual scan
+behavior and left the published engineering evidence tied to an older trainer
+generation.
+
+Disposition: all-record enforcement now requires both `max_shards == 0` and
+the absence of a frozen shard list. Two executable controls prove that a
+frozen list preserves its record cap and that a genuinely unbounded mirror
+scan still forces all-record mode, bringing the shard-list suite to 11/11.
+The current-generation preflight independently rehashed four official
+TFRecords per release against the checksum ledger, decoded exactly 16 records,
+ran Source and Q-Tail for 50 MPS updates per arm, and then resumed all four
+stages from step 25. Sixteen checkpoint-v6 files retained identical hashes
+across terminal resume, their parent chains passed, and the formal marker set
+remained unchanged. The previous public preflight summary/report are retained
+under `preflight_history`; the replacement remains engineering-only and cannot
+satisfy a formal effect or completion gate.
+
+### RT-51: Post-download handoff convergence was only implicit
+
+Severity: P1
+
+The handoff waits for the old feature-prewarm shell to exit, while that shell
+normally exits only after `DROID_CHECKSUM_VERIFIED` exists. Although the
+current watchdog is restarted before the wait and can launch the new pipeline
+that commits the marker, the executable control suite checked ownership and
+marker binding without proving this complete ordering. A future source edit
+could therefore create a circular wait while the individual process-count
+checks still passed.
+
+Disposition: runtime contract v9 expands to 16/16. It requires the handoff to
+start the current watchdog before its prewarm wait, the watchdog to launch a
+missing pipeline, the pipeline to commit checksum verification before its
+formal prewarm wait, and prewarm to exit on that marker. Independent negative
+mutations remove each edge and must all fail. The progress projection, stage
+marker verifier, browser QA, and page now require the exact v9 identity and
+16/16 result; stale v8 evidence cannot be promoted.
+
+### RT-52: Any syntactically valid backend commit could pass the environment gate
+
+Severity: P0
+
+The environment manifest previously required only a 40-character Git commit
+and a successful `git fsck`. A different commit, a forked origin, or local
+tracked/untracked edits could therefore enter formal training while still
+appearing reproducible.
+
+Disposition: the formal seal now requires the official DROID policy-learning
+origin, pinned commit
+`9a29c832b4c81bf38401111f5e4cdddaca217581`, a completely clean worktree, and
+Git object integrity. Environment contract v2 expands from 5/5 to 8/8 with
+isolated negative controls for commit drift, origin drift, and an untracked
+file. The progress projection and browser QA require the exact v2 identity and
+control set, so older environment evidence cannot satisfy completion.
+
+### RT-53: The final-stage closure judge lagged behind its seven-case self-test
+
+Severity: P1
+
+The incremental-closure self-test added a formal-mode rejection proving that
+4,102 objects, 4,096 TFRecords, and 187,891 decoded records must all close
+before formal training. The final-stage judge still expected the earlier
+six-case shape. A valid completed mirror would therefore have produced a
+seven-case artifact that the stale judge rejected after the download had
+already finished.
+
+Disposition: the judge now validates one exact seven-name contract, all seven
+true checks, an empty failed-check list, the exact seven case identities, and
+the positive, destructive-rejection, formal-gate-rejection, and post-snapshot
+deferral semantics. Marker hardening expands to 38/38 with five independent
+controls: the canonical payload passes, while a missing formal check, an extra
+check, a false check, or a formal rejection spoofed as success must fail. The
+live seven-case artifact passes the same helper used by the final-stage judge.
+
+### RT-54: The page linked only 41 of 64 formal artifact paths
+
+Severity: P1
+
+The artifact section exposed many process logs and reports, but its static link
+set omitted the 20 individual formal checkpoints and three transition gates.
+The separate checkpoint matrix showed logical states without providing the
+contract paths, so a reader could not inspect every required intermediate
+artifact from the page. Counting all visible links concealed this 41/64 formal
+contract coverage gap.
+
+Disposition: the authoritative progress projection now publishes the sorted
+`required_artifacts` set independently of the missing and unsealed subsets.
+The page renders all current formal requirements in a dedicated ledger with
+`SEALED`, `GENERATED`, and `WAIT` states. Browser QA requires row/count and
+state-count equality, unique relative links, exactly 20 checkpoint paths, all
+three post-download transition gates, and no desktop or 390-pixel mobile
+overflow. Every generated or sealed contract URL must return HTTP 200, while
+future-stage `WAIT` paths are not probed prematurely. The live audit currently
+closes 64/64 paths as 0 sealed, 27 generated but unsealed, and 37 waiting;
+formal results remain withheld.
+
+### RT-55: A caught-up prewarm pass could look like full-mirror completion
+
+Severity: P1
+
+The feature prewarmer previously emitted `prewarm_complete` after it decoded
+every shard available at its snapshot. During download, that label could be
+read as all 4,096 official TFRecords being present even when the count was
+still lower.
+
+Disposition: prewarm status now encodes both snapshot scope and the official
+4,096-shard target and the exact 2,048 + 2,048 official release composition.
+Partial successful snapshots are
+`prewarm_caught_up_current_snapshot`; only exact official shard coverage can be
+`prewarm_full_official_shard_snapshot_complete`. A dedicated six-case
+contract selftest covers partial, exact, coverage-error, excess, empty, and
+wrong-release-composition inputs. Independent checksum and record gates still
+control formal training. Final browser QA semantically validates the exact
+six-name artifact and includes it in the final hash manifest; a missing,
+renamed, extra, or false control blocks final publication.
+
+### RT-56: Environment capture did not bind optimizer startup to one code generation
+
+Severity: P0
+
+The environment manifest recorded workspace SHA-256 values, but it did not
+prove those values matched the atomic ORICO orchestration snapshot. The
+pipeline-generation gate bound only the shell script, and the trainer did not
+re-hash all critical code before entering the verified-mirror and optimizer
+path. A post-capture edit could therefore leave a valid-looking environment
+artifact while formal training executed a different code generation.
+
+Disposition: environment contract v3 now requires exact workspace-to-ORICO
+snapshot parity and adds a ninth destructive control for snapshot drift. The
+trainer requires that environment manifest in formal mode and re-hashes every
+listed critical file, the trainer itself, and the retained snapshot manifest
+before mirror parsing or any optimizer update. Gate-order controls expand to
+11/11 with explicit ordering, positive binding, and live-code mutation
+rejection. Training and final-page judges independently recompute the same
+binding through publication. Shell contract v8 adds a tenth destructive
+control proving the formal trainer cannot lose its environment-manifest
+argument. These local hashes establish internal retained
+artifact consistency only; they are not an external timestamp or WORM seal.
+
+### RT-57: A mount-visible LaunchAgent could kill a worker it could not replace
+
+Severity: P0
+
+macOS allowed the scheduled LaunchAgent to see the ORICO mount and inspect its
+status files while denying writes to the removable volume. At
+`2026-07-31T10:38:50Z` that launcher classified prewarm PID `81824` as stale,
+terminated it, and reported a replacement two seconds later. The replacement
+could not publish its first ORICO heartbeat and exited immediately. Download
+and transport isolation continued, but runtime health correctly fell because
+the unique prewarm process was absent. A mount check alone was therefore not a
+sufficient authority check for destructive supervision.
+
+Disposition: the terminal launcher now performs an atomic ORICO write/remove
+probe before starting web supervision or inspecting, stopping, or replacing
+any worker. Failure logs locally and exits without touching existing
+processes. Runtime contract v10 retains the same 16 controlled cases but
+extends its launcher source acceptance and destructive mutation suite to
+require this guard before every supervision action. Prewarm was restored under
+the ORICO-capable execution domain as PID `95778`. At the next real scheduled
+run (`2026-07-31T10:43:52Z`) the LaunchAgent logged that ORICO write access was
+unavailable, refused supervision, and left PID `95778` unchanged. Its bound
+heartbeat then advanced through `3,782` and `3,784` complete-shard snapshots;
+runtime health and browser smoke QA returned to passed. The audit proves this
+observed permission boundary and source ordering, not that future macOS
+privacy settings or external-volume availability cannot change.
+
+### RT-58: Training completion could expose values before final publication
+
+Severity: P0
+
+The live page treated a valid `DROID_TRAINING_COMPLETE` marker as sufficient
+to render formal values. That marker proves the same-compute experiment ran,
+but it precedes the independent final artifact seal, desktop/mobile QA, and
+atomic public projection commit. A short 8/9 interval could therefore expose
+an unsealed result as if it were already public evidence.
+
+Disposition: `formal_results_publishable` now remains false until the final
+page marker and `DROID_PUBLIC_PROJECTION_COMMITTED` both validate. The page
+requires the same three conditions and stays `WITHHELD` throughout the 8/9
+precommit QA. Actual formal values are rendered only from the committed 9/9
+projection and are then checked by the read-only postcommit desktop/mobile
+QA. Marker hardening adds two destructive controls: honest precommit
+withholding must pass, while a training-only publication flag must be
+rejected. A separate identity-contract control locks the exact 38-name set and
+rejects missing, extra, or duplicate controls. This expands the marker suite
+to 38/38 without changing the
+hypothesis outcome or making outcome direction a completion gate.
+
+### RT-59: The formal rejection control collapsed after the mirror became full
+
+Severity: P0
+
+The incremental-closure self-test derived its formal-mode expectation from the
+live baseline. Before download completion that correctly exercised rejection,
+but after all 4,102 objects, 4,096 TFRecords, and 187,891 records closed, the
+same case became a successful full-mirror invocation. The final judge correctly
+required a rejection control and withheld the training marker, so a complete
+training run could not be published even though its model artifacts were
+valid.
+
+Disposition: the formal rejection case now reuses the frozen post-snapshot
+fixture with exactly one TFRecord deferred. Ordinary incremental closure must
+still return zero, while the same fixture under `--require-formal` must return
+nonzero with `formal_full_mirror_gate=false`. The live full-mirror positive
+case remains separate. The corrected seven-case artifact passes the exact
+final-judge helper, and the failed publication attempt is retained under
+`run_attempts/` rather than overwritten.
+
+### RT-60: The page was healthy while an immutable marker URL returned 404
+
+Severity: P1
+
+Both supervised `serve` instances returned the expected DROID page and passed
+the runtime content probe, but `download_completion_marker.json` returned 404.
+The result entry is intentionally a symbolic link to the immutable marker in
+the same ORICO job root, and `serve` rejects symbolic links by default. A judge
+could therefore see a healthy page and a READY artifact label without being
+able to retrieve the evidence.
+
+Disposition: both supervised endpoints now use the explicit
+`serve --symlinks` mode and bind ownership checks to that exact command.
+Runtime contract v11 retains 16 named controls while strengthening the web
+source control: removing `--symlinks` must make the destructive suite fail.
+Desktop/mobile smoke QA additionally requests every READY artifact and requires
+HTTP 200. The observed download marker now returns 200 on ports 54655 and 6222.
+This is a local evidence-retrieval guarantee for the audited job root, not a
+public hosting, authorization, or external immutability claim.
+
+### RT-61: Same-machine checkpoints could cross formal code generations
+
+Severity: P0
+
+The formal trainer originally bound resumable checkpoints only to hardware,
+OS, Python, PyTorch, MPS, and device. A completed checkpoint from an earlier
+formal code snapshot therefore remained eligible on the same machine even
+after the environment manifest and atomic ORICO orchestration snapshot had
+changed. The startup environment audit was current, but zero optimizer updates
+could be inherited from the current generation.
+
+Disposition: checkpoint format v6 introduces
+`qtail_checkpoint_environment_v2`. Its fingerprint covers the runtime
+environment plus the formal environment-manifest SHA-256, checked live-code
+aggregate SHA-256, ORICO snapshot-manifest SHA-256, and snapshot code-parity
+result. Resume, intermediate-manifest, final-marker, progress, preflight, and
+browser validators all compare this dedicated fingerprint. A deterministic
+negative control holds the runtime environment fixed, changes only the formal
+snapshot hash, and requires rejection with restart from step 0. Earlier v5
+checkpoints remain retained as failed-generation evidence but cannot resume a
+v6 run.
 
 ## Acceptance rule
 

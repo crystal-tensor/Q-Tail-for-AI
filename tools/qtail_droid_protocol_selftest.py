@@ -98,15 +98,32 @@ def main() -> None:
     )
     args = parser.parse_args()
     control_device = torch.device("cpu")
-    control_environment = protocol.runtime_environment_contract(
+    control_runtime_environment = protocol.runtime_environment_contract(
         control_device
+    )
+    control_environment_binding = {
+        "passed": True,
+        "manifest_sha256": "a" * 64,
+        "checked_code_aggregate_sha256": "b" * 64,
+        "snapshot_manifest_sha256": "c" * 64,
+        "snapshot_code_parity_passed": True,
+    }
+    control_environment = protocol.checkpoint_environment_contract(
+        control_runtime_environment,
+        control_environment_binding,
+        formal_run=True,
     )
     control_environment_sha256 = protocol.environment_fingerprint(
         control_environment
     )
-    mismatched_environment = dict(control_environment)
-    mismatched_environment["torch_version"] = (
-        f"{control_environment['torch_version']}-mismatch-control"
+    mismatched_environment_binding = {
+        **control_environment_binding,
+        "snapshot_manifest_sha256": "d" * 64,
+    }
+    mismatched_environment = protocol.checkpoint_environment_contract(
+        control_runtime_environment,
+        mismatched_environment_binding,
+        formal_run=True,
     )
     mismatched_environment_sha256 = protocol.environment_fingerprint(
         mismatched_environment
@@ -1569,6 +1586,25 @@ def main() -> None:
             )
             and environment_rejected_state_matches
         ),
+        "same_runtime_different_formal_snapshot_checkpoint_rejected": bool(
+            environment_rejected_audit["resumed"] is False
+            and environment_rejected_audit["resumed_from_step"] == 0
+            and control_environment["runtime_environment"]
+            == mismatched_environment["runtime_environment"]
+            and control_environment["formal_environment_binding"][
+                "orico_snapshot_manifest_sha256"
+            ]
+            != mismatched_environment["formal_environment_binding"][
+                "orico_snapshot_manifest_sha256"
+            ]
+            and any(
+                "metadata_or_parent" in error
+                for rejection in environment_rejected_audit[
+                    "resume_rejections"
+                ]
+                for error in rejection["errors"]
+            )
+        ),
         "truncated_checkpoint_rejected": bool(
             truncated_audit["resumed"] is False
             and truncated_audit["resumed_from_step"] == 0
@@ -1753,8 +1789,12 @@ def main() -> None:
         "formal_shard_total_rejections": (
             formal_shard_total_rejections
         ),
-        "runtime_environment": control_environment,
-        "runtime_environment_fingerprint": control_environment_sha256,
+        "runtime_environment": control_runtime_environment,
+        "runtime_environment_fingerprint": protocol.environment_fingerprint(
+            control_runtime_environment
+        ),
+        "checkpoint_environment_contract": control_environment,
+        "checkpoint_environment_fingerprint": control_environment_sha256,
         "rare_instruction_fingerprint_coverage_control": coverage_control,
         "no_eligible_rare_fingerprint_control": no_eligible_coverage,
         "empty_instruction_fingerprint_control": (

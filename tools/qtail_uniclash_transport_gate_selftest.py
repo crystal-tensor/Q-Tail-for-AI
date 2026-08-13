@@ -61,6 +61,7 @@ def base_payload(reference: datetime) -> dict[str, Any]:
             "blocked_samples": 0,
             "forbidden_socket_observations": 0,
             "wrong_route_observations": 0,
+            "blocked_pids": [],
             "violation_events": [],
         },
         "global_violations": [],
@@ -118,9 +119,46 @@ def main() -> None:
     bypass_failed["system_proxy_bypass"]["passed"] = False
     cases["system_bypass_failure_rejected"] = (bypass_failed, False)
 
-    blocked_history = copy.deepcopy(valid)
-    blocked_history["cumulative"]["blocked_samples"] = 1
-    cases["blocked_history_rejected"] = (blocked_history, False)
+    idle_pause = copy.deepcopy(valid)
+    idle_pause["cumulative"]["blocked_samples"] = 1
+    idle_pause["cumulative"]["violation_events"] = [
+        {
+            "at": reference.isoformat(),
+            "global_violations": ["UniClashCore is not running"],
+            "blocked_processes": [],
+            "transfer_violations": [],
+        }
+    ]
+    cases["idle_core_restart_pause_is_disclosed_and_accepted"] = (
+        idle_pause,
+        True,
+    )
+
+    hidden_blocked_history = copy.deepcopy(valid)
+    hidden_blocked_history["cumulative"]["blocked_samples"] = 1
+    cases["blocked_sample_without_event_rejected"] = (
+        hidden_blocked_history,
+        False,
+    )
+
+    transfer_pause = copy.deepcopy(idle_pause)
+    transfer_pause["cumulative"]["violation_events"][0][
+        "blocked_processes"
+    ] = [100]
+    transfer_pause["cumulative"]["violation_events"][0][
+        "transfer_violations"
+    ] = [{"pid": 100, "violations": ["UniClashCore is not running"]}]
+    transfer_pause["cumulative"]["blocked_pids"] = [100]
+    cases["core_restart_during_transfer_rejected"] = (
+        transfer_pause,
+        False,
+    )
+
+    unknown_pause = copy.deepcopy(idle_pause)
+    unknown_pause["cumulative"]["violation_events"][0][
+        "global_violations"
+    ] = ["Google Storage proxy bypass is incomplete"]
+    cases["unknown_policy_pause_rejected"] = (unknown_pause, False)
 
     wrong_history = copy.deepcopy(valid)
     wrong_history["cumulative"]["wrong_route_observations"] = 1

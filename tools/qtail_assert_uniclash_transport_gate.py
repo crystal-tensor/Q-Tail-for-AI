@@ -11,7 +11,10 @@ from pathlib import Path
 from typing import Any
 
 
-GATE_VERSION = "qtail_uniclash_pre_checksum_gate_v1"
+GATE_VERSION = "qtail_uniclash_pre_checksum_gate_v2"
+ADJUDICATED_IDLE_POLICY_VIOLATIONS = frozenset(
+    {"UniClashCore is not running"}
+)
 
 
 def now() -> str:
@@ -48,6 +51,9 @@ def validate_guard(
     uniclash = payload.get("uniclash", {})
     bypass = payload.get("system_proxy_bypass", {})
     cumulative = payload.get("cumulative", {})
+    cumulative_events = cumulative.get("violation_events", [])
+    if not isinstance(cumulative_events, list):
+        cumulative_events = []
     transports = policy.get("guarded_transports", [])
     global_violations = payload.get("global_violations", [])
     transfers = payload.get("transfers", [])
@@ -69,6 +75,23 @@ def validate_guard(
         for transfer in transfers
         if isinstance(transfer, dict) and transfer.get("violations")
     ]
+    adjudicated_policy_pause_events = [
+        event
+        for event in cumulative_events
+        if isinstance(event, dict)
+        and bool(event.get("global_violations"))
+        and set(event.get("global_violations", [])).issubset(
+            ADJUDICATED_IDLE_POLICY_VIOLATIONS
+        )
+        and not event.get("blocked_processes")
+        and not event.get("transfer_violations")
+    ]
+    unadjudicated_cumulative_events = [
+        event
+        for event in cumulative_events
+        if event not in adjudicated_policy_pause_events
+    ]
+    blocked_samples = int(cumulative.get("blocked_samples", -1))
     checks = {
         "guard_status_passed": payload.get("status")
         in {"passed", "passed_idle"},
@@ -94,13 +117,14 @@ def validate_guard(
             in set(bypass.get("required_domains", []))
         ),
         "cumulative_history_clean": (
-            int(cumulative.get("blocked_samples", -1)) == 0
+            blocked_samples == len(cumulative_events)
+            and not unadjudicated_cumulative_events
             and int(
                 cumulative.get("forbidden_socket_observations", -1)
             )
             == 0
             and int(cumulative.get("wrong_route_observations", -1)) == 0
-            and not cumulative.get("violation_events")
+            and not cumulative.get("blocked_pids")
         ),
         "live_transfers_clean_and_direct": (
             not global_violations
@@ -131,10 +155,21 @@ def validate_guard(
         "live_route_interfaces": live_route_interfaces,
         "global_violations": global_violations,
         "transfer_violations": transfer_violations,
+        "adjudicated_idle_policy_pause_count": len(
+            adjudicated_policy_pause_events
+        ),
+        "unadjudicated_cumulative_violation_count": len(
+            unadjudicated_cumulative_events
+        ),
         "uniclash_core_pids": uniclash.get("core_pids", []),
         "claim_boundary": (
             "This is a point-in-time launch gate. Continuous route/socket "
-            "observation and final timeline verification are still required."
+            "observation and final timeline verification are still required. "
+            "A historical UniClashCore-off heartbeat is accepted only when "
+            "the same event has no DROID process or transfer violation and "
+            "the cumulative history has zero forbidden sockets, wrong routes, "
+            "or blocked PIDs; the event remains disclosed as an idle policy "
+            "pause."
         ),
     }
 
